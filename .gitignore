@@ -1,0 +1,12 @@
+# Local environment variables containing private API keys
+.env
+
+# Local vector database storage 
+chroma_db/
+
+# Python caching files
+__pycache__/
+*.pyc
+
+# Optional: Ignore your personal document storage if they contain private info
+# documents/

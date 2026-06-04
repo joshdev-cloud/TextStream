@@ -64,6 +64,13 @@ type QuizMode = "sprint" | "marathon" | "blitz" | "sudden";
 type Popup = null | "ai" | "tools" | "quiz" | "active-quiz";
 type WorkMode = "chat" | "summarize";
 
+interface QuizQuestion {
+  question: string;
+  options: string[];
+  correct_index: number;
+  explanation: string;
+}
+
 /* ──────────────────────────── Constants ──────────────────────────── */
 
 const QUIZ_MODES: {
@@ -201,6 +208,14 @@ export function Workspace() {
   const [popup, setPopup] = useState<Popup>(null);
   const [workMode, setWorkMode] = useState<WorkMode>("chat");
   const [summaryShown, setSummaryShown] = useState(false);
+  const [summaryData, setSummaryData] = useState<{
+    takeaways: string[];
+    terminology: string[];
+    insights: string;
+  } | null>(null);
+  const [isSummarizing, setIsSummarizing] = useState(false);
+  const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
+  const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
   const [quizMode, setQuizMode] = useState<QuizMode>("sprint");
   const [qCount, setQCount] = useState(10);
   const [difficulty, setDifficulty] = useState(50);
@@ -401,14 +416,20 @@ export function Workspace() {
     addMessageToSession(activeSession.id, "user", userQuery);
     setChatInput("");
 
-    // Try calling the FastAPI RAG backend at http://localhost:8000/api/query
+    const activeDocNames = sessionDocuments.filter(d => d.active).map(d => d.name);
+
+    // Try calling the FastAPI RAG backend at http://localhost:8000/api/chat
     try {
-      const response = await fetch("http://localhost:8000/api/query", {
+      const response = await fetch("http://localhost:8000/api/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ question: userQuery }),
+        body: JSON.stringify({
+          question: userQuery,
+          model: currentModel,
+          document_names: activeDocNames
+        }),
       });
 
       if (response.ok) {
@@ -422,7 +443,7 @@ export function Workspace() {
         addMessageToSession(
           activeSession.id,
           "ai",
-          `**[AI Engine / Local RAG Connected]**\n\n${data.answer}`,
+          data.answer,
           evidence
         );
         return;
@@ -467,6 +488,70 @@ export function Workspace() {
 
       addMessageToSession(activeSession.id, "ai", replyContent, mockEvidence);
     }, 1000);
+  };
+
+  const handleRunSummary = async () => {
+    setIsSummarizing(true);
+    setSummaryShown(true);
+    setSummaryData(null);
+    
+    const activeDocNames = sessionDocuments.filter(d => d.active).map(d => d.name);
+    try {
+      const response = await fetch("http://localhost:8000/api/summarize", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          document_names: activeDocNames,
+          model: currentModel,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setSummaryData(data);
+      } else {
+        console.error("Failed to run summary");
+      }
+    } catch (err) {
+      console.error("Summary fetch error:", err);
+    } finally {
+      setIsSummarizing(false);
+    }
+  };
+
+  const handleLaunchQuiz = async () => {
+    setIsGeneratingQuiz(true);
+    setPopup("active-quiz");
+    setQuizQuestions([]);
+    
+    const activeDocNames = sessionDocuments.filter(d => d.active).map(d => d.name);
+    try {
+      const response = await fetch("http://localhost:8000/api/quiz", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          document_names: activeDocNames,
+          model: currentModel,
+          question_count: qCount,
+          difficulty: difficulty
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setQuizQuestions(data.questions || []);
+      } else {
+        console.error("Failed to generate quiz");
+      }
+    } catch (err) {
+      console.error("Quiz fetch error:", err);
+    } finally {
+      setIsGeneratingQuiz(false);
+    }
   };
 
   const handleEndSession = () => {
@@ -543,12 +628,11 @@ export function Workspace() {
           <div className="max-w-3xl mx-auto animate-pop-in">
             <ActiveQuizView
               mode={quizMode}
-              selected={selected}
-              setSelected={setSelected}
-              correctIndex={correctIndex}
+              questions={quizQuestions}
+              isGenerating={isGeneratingQuiz}
               onClose={() => {
                 setPopup(null);
-                setSelected(null);
+                setQuizQuestions([]);
               }}
             />
           </div>
@@ -681,10 +765,13 @@ export function Workspace() {
             ) : (
               <SummarizerPanel
                 shown={summaryShown}
-                onRun={() => setSummaryShown(true)}
+                summaryData={summaryData}
+                isSummarizing={isSummarizing}
+                onRun={handleRunSummary}
                 onExit={() => {
                   setWorkMode("chat");
                   setSummaryShown(false);
+                  setSummaryData(null);
                 }}
               />
             )}
@@ -754,7 +841,7 @@ export function Workspace() {
                 difficulty={difficulty}
                 setDifficulty={setDifficulty}
                 onClose={() => setPopup(null)}
-                onLaunch={() => setPopup("active-quiz")}
+                onLaunch={handleLaunchQuiz}
               />
             )}
           </section>
@@ -1379,24 +1466,129 @@ function gaugeColor(v: number) {
 
 function ActiveQuizView({
   mode,
-  selected,
-  setSelected,
-  correctIndex,
+  questions,
+  isGenerating,
   onClose,
 }: {
   mode: QuizMode;
-  selected: number | null;
-  setSelected: (n: number) => void;
-  correctIndex: number;
+  questions: QuizQuestion[];
+  isGenerating: boolean;
   onClose: () => void;
 }) {
-  const options = [
-    "It proceeds via a carbocation intermediate.",
-    "It is a one-step concerted backside attack.",
-    "It requires polar protic solvents.",
-    "It is favored by tertiary substrates.",
-  ];
-  const answered = selected !== null;
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [selectedOption, setSelectedOption] = useState<number | null>(null);
+  const [score, setScore] = useState(0);
+  const [showResult, setShowResult] = useState(false);
+  const [timerSeconds, setTimerSeconds] = useState(20);
+
+  const answered = selectedOption !== null;
+
+  // Timer logic for Sprint Mode
+  useEffect(() => {
+    if (mode !== "sprint" || showResult || isGenerating || questions.length === 0) return;
+    if (answered) return; // Stop counting once answered
+
+    setTimerSeconds(20); // Reset timer when current question changes
+
+    const interval = setInterval(() => {
+      setTimerSeconds((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          // Auto select an incorrect option (-1) to reveal explanation
+          setSelectedOption(-1);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [currentIndex, answered, mode, showResult, isGenerating, questions.length]);
+
+  if (isGenerating) {
+    return (
+      <div className="glass-strong rounded-3xl p-8 border border-border/40 shadow-glass text-center py-16">
+        <Loader2 className="size-12 animate-spin text-amber-glow mx-auto mb-4" />
+        <h3 className="font-display text-xl font-bold">Synthesizing Your Evaluation Quiz</h3>
+        <p className="text-sm text-muted-foreground mt-2 max-w-sm mx-auto">
+          Our AI is reading your active PDFs, extracting key concepts, and formatting questions. This will take a few seconds...
+        </p>
+      </div>
+    );
+  }
+
+  if (!questions || questions.length === 0) {
+    return (
+      <div className="glass-strong rounded-3xl p-8 border border-border/40 shadow-glass text-center py-16">
+        <ShieldAlert className="size-12 text-coral mx-auto mb-4 animate-pulse" />
+        <h3 className="font-display text-xl font-bold">No Questions Generated</h3>
+        <p className="text-sm text-muted-foreground mt-2 max-w-sm mx-auto">
+          Please make sure you have uploaded and selected active PDFs on the right panel before launching the quiz.
+        </p>
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-6 px-6 py-2.5 rounded-full bg-secondary text-foreground hover:bg-secondary/80 font-semibold text-sm transition"
+        >
+          Go Back
+        </button>
+      </div>
+    );
+  }
+
+  const currentQuestion = questions[currentIndex];
+
+  if (showResult) {
+    const percent = Math.round((score / questions.length) * 100);
+    return (
+      <div className="glass-strong rounded-3xl p-8 border border-border/40 shadow-glass text-center animate-pop-in">
+        <GraduationCap className="size-16 text-mint mx-auto mb-4 animate-bounce" />
+        <h3 className="font-display text-2xl font-bold font-sans">Quiz Session Completed!</h3>
+        <p className="text-sm text-muted-foreground mt-1 uppercase tracking-wider font-semibold font-sans">
+          Mode: {mode.toUpperCase()}
+        </p>
+
+        <div className="my-8">
+          <div className="inline-block relative">
+            <span className="text-6xl font-extrabold text-foreground font-mono">{score}</span>
+            <span className="text-2xl text-muted-foreground font-mono"> / {questions.length}</span>
+          </div>
+          <p className="text-sm font-semibold mt-2 font-sans" style={{ color: percent >= 70 ? "oklch(0.72 0.16 165)" : "oklch(0.68 0.22 15)" }}>
+            {percent >= 90 ? "Mastery achieved! Excellent job!" : percent >= 70 ? "Solid understanding! Keep it up!" : "Keep studying and try again!"}
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="px-8 py-3.5 rounded-2xl bg-gradient-to-r from-mint to-lavender text-white font-bold text-sm glow-mint hover:brightness-110 transition"
+        >
+          Return to Workspace
+        </button>
+      </div>
+    );
+  }
+
+  const handleSelectOption = (index: number) => {
+    if (answered) return;
+    setSelectedOption(index);
+    if (index === currentQuestion.correct_index) {
+      setScore((prev) => prev + 1);
+    }
+  };
+
+  const handleNextQuestion = () => {
+    setSelectedOption(null);
+    if (mode === "sudden" && selectedOption !== currentQuestion.correct_index) {
+      setShowResult(true);
+    } else if (currentIndex < questions.length - 1) {
+      setCurrentIndex((prev) => prev + 1);
+    } else {
+      setShowResult(true);
+    }
+  };
+
+  const isSuddenDeathFailed = mode === "sudden" && answered && selectedOption !== currentQuestion.correct_index;
 
   return (
     <div className="glass-strong rounded-3xl p-8 border border-border/40 shadow-glass">
@@ -1406,20 +1598,26 @@ function ActiveQuizView({
           <span className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
             Question
           </span>
-          <span className="font-display font-bold text-lg">03 / 10</span>
+          <span className="font-display font-bold text-lg">
+            {(currentIndex + 1).toString().padStart(2, "0")} / {questions.length.toString().padStart(2, "0")}
+          </span>
         </div>
         <div className="flex items-center gap-3">
           {mode === "sprint" ? (
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-mint/15 text-mint text-xs font-bold glow-mint">
               <Timer className="size-3.5" />
-              00:14
+              00:{timerSeconds.toString().padStart(2, "0")}
             </div>
           ) : (
             <div className="w-32 h-2 rounded-full bg-muted overflow-hidden">
-              <div className="h-full w-[30%] bg-lavender glow-lavender" />
+              <div
+                className="h-full bg-lavender glow-lavender transition-all duration-300"
+                style={{ width: `${((currentIndex + 1) / questions.length) * 100}%` }}
+              />
             </div>
           )}
           <button
+            type="button"
             onClick={onClose}
             className="size-9 rounded-full glass grid place-items-center hover:bg-secondary/60"
           >
@@ -1430,26 +1628,26 @@ function ActiveQuizView({
 
       <div className="text-center my-6">
         <h3 className="font-display text-2xl font-bold leading-snug max-w-lg mx-auto">
-          Which statement best describes the SN2 reaction mechanism?
+          {currentQuestion.question}
         </h3>
       </div>
 
       <div className="grid sm:grid-cols-2 gap-3">
-        {options.map((opt, i) => {
-          const isCorrect = i === correctIndex;
-          const isPicked = selected === i;
+        {currentQuestion.options.map((opt, i) => {
+          const isCorrect = i === currentQuestion.correct_index;
+          const isPicked = selectedOption === i;
           let cls = "glass hover:scale-[1.01] hover:bg-secondary/40 text-left";
           if (answered) {
             if (isCorrect) cls = "bg-mint/20 ring-2 ring-mint glow-mint text-left";
-            else if (isPicked)
-              cls = "bg-coral/20 ring-2 ring-coral glow-coral text-left";
+            else if (isPicked) cls = "bg-coral/20 ring-2 ring-coral glow-coral text-left";
             else cls = "glass opacity-60 text-left";
           }
           return (
             <button
               key={i}
               type="button"
-              onClick={() => !answered && setSelected(i)}
+              onClick={() => handleSelectOption(i)}
+              disabled={answered}
               className={`rounded-2xl p-4 transition flex gap-3 items-start ${cls}`}
             >
               <span
@@ -1474,15 +1672,25 @@ function ActiveQuizView({
           <div className="flex items-center gap-2 text-mint font-display font-bold text-sm">
             <Sparkles className="size-4" /> Why this answer?
           </div>
-          <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
-            SN2 reactions are <b>bimolecular</b>, occurring in a single
-            concerted step where the nucleophile attacks the substrate from the
-            side opposite the leaving group — causing inversion of
-            stereochemistry. Rate depends on both substrate and nucleophile.
+          <p className="text-sm text-muted-foreground mt-2 leading-relaxed font-sans">
+            {currentQuestion.explanation}
           </p>
+          {isSuddenDeathFailed && (
+            <p className="text-sm text-coral font-bold mt-2 font-sans">
+              ⚠️ Answer is incorrect! Sudden Death Mode triggered. The quiz terminates now.
+            </p>
+          )}
           <div className="mt-3 flex justify-end">
-            <button className="rounded-full px-5 py-2 bg-lavender text-white text-sm font-semibold glow-lavender hover:brightness-110">
-              Next Question →
+            <button
+              type="button"
+              onClick={handleNextQuestion}
+              className="rounded-full px-5 py-2 bg-lavender text-white text-sm font-semibold glow-lavender hover:brightness-110"
+            >
+              {isSuddenDeathFailed
+                ? "Show Results (Sudden Death) →"
+                : currentIndex < questions.length - 1
+                ? "Next Question →"
+                : "Finish →"}
             </button>
           </div>
         </div>
@@ -1495,10 +1703,14 @@ function ActiveQuizView({
 
 function SummarizerPanel({
   shown,
+  summaryData,
+  isSummarizing,
   onRun,
   onExit,
 }: {
   shown: boolean;
+  summaryData: { takeaways: string[]; terminology: string[]; insights: string } | null;
+  isSummarizing: boolean;
   onRun: () => void;
   onExit: () => void;
 }) {
@@ -1546,28 +1758,41 @@ function SummarizerPanel({
       {/* Run button */}
       <button
         onClick={onRun}
-        className="mt-4 w-full rounded-2xl py-5 font-display font-bold text-base bg-gradient-to-r from-amber-glow via-[oklch(0.8_0.18_60)] to-coral text-white glow-amber hover:brightness-110 transition flex items-center justify-center gap-2"
+        disabled={isSummarizing}
+        className="mt-4 w-full rounded-2xl py-5 font-display font-bold text-base bg-gradient-to-r from-amber-glow via-[oklch(0.8_0.18_60)] to-coral text-white glow-amber hover:brightness-110 transition flex items-center justify-center gap-2 disabled:opacity-50"
       >
-        <Sparkles className="size-5" />
-        ✨ Run One-Click Document Summary
+        {isSummarizing ? (
+          <>
+            <Loader2 className="size-5 animate-spin" />
+            Generating Summary...
+          </>
+        ) : (
+          <>
+            <Sparkles className="size-5" />
+            ✨ Run One-Click Document Summary
+          </>
+        )}
       </button>
 
       {/* Summary output */}
       <div className="flex-1 mt-4 overflow-y-auto pr-1">
-        {shown ? (
+        {isSummarizing ? (
+          <div className="h-full grid place-items-center text-center text-xs text-muted-foreground py-10">
+            <div className="flex flex-col items-center gap-2">
+              <Loader2 className="size-8 animate-spin text-amber-glow" />
+              <span>Analyzing documents and synthesizing key takeaways...</span>
+            </div>
+          </div>
+        ) : shown && summaryData ? (
           <div className="glass rounded-2xl p-5 animate-slide-down space-y-5 text-sm leading-relaxed">
             <div>
               <h4 className="font-display font-bold text-base flex items-center gap-2 text-mint">
                 <Check className="size-4" /> Bulleted Takeaways
               </h4>
               <ul className="mt-2 space-y-1.5 list-disc list-inside text-muted-foreground">
-                <li>SN1 = unimolecular, two-step, carbocation intermediate.</li>
-                <li>SN2 = bimolecular, one-step concerted backside attack.</li>
-                <li>
-                  Solvent polarity and substrate class dictate the pathway
-                  chosen.
-                </li>
-                <li>Stereochemistry: SN1 racemizes, SN2 inverts.</li>
+                {summaryData.takeaways.map((t, idx) => (
+                  <li key={idx}>{t}</li>
+                ))}
               </ul>
             </div>
             <div>
@@ -1575,13 +1800,7 @@ function SummarizerPanel({
                 <BookOpen className="size-4" /> Technical Terminology
               </h4>
               <div className="mt-2 flex flex-wrap gap-2">
-                {[
-                  "Nucleophile",
-                  "Leaving group",
-                  "Carbocation",
-                  "Protic solvent",
-                  "Stereoinversion",
-                ].map((t) => (
+                {summaryData.terminology.map((t) => (
                   <span
                     key={t}
                     className="text-xs glass rounded-full px-3 py-1 font-medium"
@@ -1595,11 +1814,8 @@ function SummarizerPanel({
               <h4 className="font-display font-bold text-base flex items-center gap-2 text-amber-glow">
                 <Sparkles className="size-4" /> Core Insights
               </h4>
-              <p className="mt-2 text-muted-foreground">
-                Tertiary substrates strongly prefer <b>SN1</b> due to
-                carbocation stability, while methyl/primary substrates almost
-                exclusively undergo <b>SN2</b>. Choosing the right solvent is
-                the single biggest mechanistic lever in problem sets.
+              <p className="mt-2 text-muted-foreground whitespace-pre-wrap">
+                {summaryData.insights}
               </p>
             </div>
           </div>

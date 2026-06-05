@@ -142,40 +142,9 @@ const ACCENT_CLASSES: Record<
 
 /* ──────────────────────────── Main Component ──────────────────────────── */
 
-const MOCK_PDF_TEXTS: Record<string, string[]> = {
-  "doc-1": [
-    "Organic Chemistry Semester Exam Prep: Quick Reference Sheets.",
-    "Nucleophiles (Nu⁻) are electron-rich species with lone pairs or pi bonds that donate electrons to electrophiles.",
-    "Good leaving groups are weak bases. Halides (I⁻, Br⁻, Cl⁻) and sulfonates (TfO⁻, TsO⁻, MsO⁻) are excellent leaving groups because they are stable after departing.",
-    "Elimination reactions (E1 and E2) compete with substitution. High temperatures and strong, bulky bases (like potassium t-butoxide) favor elimination over substitution.",
-    "Zaitsev's rule states that in elimination reactions, the most substituted alkene (the most stable one) will be the major product.",
-    "Hoffman's rule applies when using a sterically hindered base, which yields the less substituted alkene as the major product."
-  ],
-  "doc-2": [
-    "Chapter 17 — Nucleophilic Substitution of Carbonyls.",
-    "The SN1 mechanism proceeds via a two-step process. In the first step (the rate-determining step), the leaving group departs from the substrate to form a relatively stable carbocation intermediate.",
-    "Because the carbocation intermediate is planar and sp2-hybridized, the nucleophile can attack from either face, resulting in racemization of the stereocenter if the starting material was chiral.",
-    "SN1 reactions are strongly favored by polar protic solvents (like water, methanol, or ethanol) which solvate and stabilize both the carbocation intermediate and the anionic leaving group.",
-    "Furthermore, tertiary substrates react extremely rapidly via SN1 because the resulting tertiary carbocation is stabilized by hyperconjugation and inductive effects.",
-    "In contrast, the SN2 mechanism proceeds in a single concerted step. The nucleophile attacks the substrate from the back side, directly opposite to the bond pointing towards the leaving group.",
-    "This simultaneous bond-forming and bond-breaking event causes a complete inversion of stereochemistry at the carbon center (often called Walden inversion).",
-    "Steric hindrance is the dominant factor in SN2 reaction rates. Primary and methyl halides react very quickly, whereas tertiary substrates do not undergo SN2 reactions at all."
-  ],
-  "doc-3": [
-    "Lecture Slides: May 28, 2026. Practical Laboratory Separation Techniques.",
-    "Thin Layer Chromatography (TLC) is used to monitor reaction progress by separating components based on polarity.",
-    "The retention factor (Rf value) is defined as the distance traveled by the compound divided by the distance traveled by the solvent front.",
-    "Column chromatography is a preparative scale purification method where the stationary phase is silica gel and the mobile phase is a solvent gradient.",
-    "Distillation separates components based on differences in their boiling points. Simple, fractional, and vacuum distillations are the primary types."
-  ]
-};
-
 const getPdfParagraphs = (doc: { id: string; name: string; paragraphs?: string[] }) => {
   if (doc.paragraphs && doc.paragraphs.length > 0) {
     return doc.paragraphs;
-  }
-  if (MOCK_PDF_TEXTS[doc.id]) {
-    return MOCK_PDF_TEXTS[doc.id];
   }
   return [
     `This is the active viewport reader for "${doc.name}". The document has been successfully indexed into the local study space.`,
@@ -219,13 +188,10 @@ export function Workspace() {
   const [quizMode, setQuizMode] = useState<QuizMode>("sprint");
   const [qCount, setQCount] = useState(10);
   const [difficulty, setDifficulty] = useState(50);
-  const [selected, setSelected] = useState<number | null>(null);
   const [chatInput, setChatInput] = useState("");
   const [showGoalPicker, setShowGoalPicker] = useState(false);
 
-  // Viewport document toggle states (initially offline until a document is clicked)
   const [viewportDocId, setViewportDocId] = useState<string | null>(null);
-  const correctIndex = 1;
 
   // Viewport zoom, scrolling, and highlight states
   const [zoomLevel, setZoomLevel] = useState(100);
@@ -418,7 +384,6 @@ export function Workspace() {
 
     const activeDocNames = sessionDocuments.filter(d => d.active).map(d => d.name);
 
-    // Try calling the FastAPI RAG backend at http://localhost:8000/api/chat
     try {
       const response = await fetch("http://localhost:8000/api/chat", {
         method: "POST",
@@ -446,48 +411,22 @@ export function Workspace() {
           data.answer,
           evidence
         );
-        return;
+      } else {
+        const errorData = await response.json().catch(() => ({ detail: "Unknown error" }));
+        addMessageToSession(
+          activeSession.id,
+          "ai",
+          `⚠️ **Backend Error (${response.status}):** ${errorData.detail || "The AI could not process your request. Please check if documents are uploaded and indexed."}`
+        );
       }
     } catch (err) {
-      console.log("[TextStream Client] FastAPI backend query failed, falling back to simulation:", err);
+      console.error("[TextStream Client] FastAPI backend query failed:", err);
+      addMessageToSession(
+        activeSession.id,
+        "ai",
+        "⚠️ **Cannot reach the AI backend.** Make sure the Python FastAPI server is running at http://localhost:8000.\n\nStart it with:\n```\ncd backend\npython main.py\n```"
+      );
     }
-
-    // Fallback simulation if RAG backend is not running or failed
-    setTimeout(() => {
-      let replyContent = "";
-      let mockEvidence: { file: string; page: number; snippet: string }[] = [];
-
-      const activeSessionDocs = sessionDocuments.filter(d => d.active);
-
-      if (activeSessionDocs.length === 0) {
-        replyContent = "⚠️ Currently, there are no active documents in this study session vault. Select and toggle a PDF to active status in your vault below to allow references.";
-      } else {
-        const primaryDoc = activeSessionDocs[0];
-        const randomPage = Math.floor(Math.random() * primaryDoc.pages) + 1;
-
-        if (currentModel === "velocity") {
-          replyContent = `**[Velocity Core / Fallback Simulation]**:\n\nReferencing **${primaryDoc.name}** for this workspace session:\n\n* Mechanisms depend on substrate steric bulk.\n* Polar aprotic solvents accelerate concerted SN2 backside reactions.\n\n*(Tip: Run your python backend server at http://localhost:8000 to query the live vector database)*`;
-          mockEvidence = [
-            {
-              file: primaryDoc.name,
-              page: randomPage,
-              snippet: `Substrate steric profiles and activation parameters.`,
-            },
-          ];
-        } else {
-          replyContent = `**[Deep Thinker / Fallback Simulation]**:\n\nHere is a diagnostic breakdown extracted from **${primaryDoc.name}**:\n\n1. **SN1 Rates**: Proportional to substrate concentrations. Solvolysis is highly accelerated.\n2. **SN2 Rates**: Concerted activation. Inversion of configuration happens cleanly.\n\n*(Tip: Run your python backend server at http://localhost:8000 to query the live vector database)*`;
-          mockEvidence = [
-            {
-              file: primaryDoc.name,
-              page: randomPage,
-              snippet: `Transition states comparison and stereochemical inversion rules.`,
-            },
-          ];
-        }
-      }
-
-      addMessageToSession(activeSession.id, "ai", replyContent, mockEvidence);
-    }, 1000);
   };
 
   const handleRunSummary = async () => {
@@ -512,10 +451,20 @@ export function Workspace() {
         const data = await response.json();
         setSummaryData(data);
       } else {
-        console.error("Failed to run summary");
+        const errorData = await response.json().catch(() => ({ detail: "Unknown error" }));
+        setSummaryData({
+          takeaways: [`⚠️ Backend Error (${response.status}): ${errorData.detail || "Could not generate summary."}`],
+          terminology: [],
+          insights: "Please check that the backend server is running and documents are uploaded.",
+        });
       }
     } catch (err) {
       console.error("Summary fetch error:", err);
+      setSummaryData({
+        takeaways: ["⚠️ Cannot reach the AI backend at http://localhost:8000."],
+        terminology: [],
+        insights: "Make sure the Python FastAPI server is running. Start it with: cd backend && python main.py",
+      });
     } finally {
       setIsSummarizing(false);
     }
@@ -545,10 +494,22 @@ export function Workspace() {
         const data = await response.json();
         setQuizQuestions(data.questions || []);
       } else {
-        console.error("Failed to generate quiz");
+        const errorData = await response.json().catch(() => ({ detail: "Unknown error" }));
+        setQuizQuestions([{
+          question: `⚠️ Backend Error (${response.status}): ${errorData.detail || "Could not generate quiz."}`,
+          options: ["Try again", "Check backend", "Upload documents", "Switch AI model"],
+          correct_index: 0,
+          explanation: "The AI backend returned an error. Make sure documents are uploaded and the server is running."
+        }]);
       }
     } catch (err) {
       console.error("Quiz fetch error:", err);
+      setQuizQuestions([{
+        question: "⚠️ Cannot reach the AI backend at http://localhost:8000",
+        options: ["Start backend server", "Check your connection", "Retry later", "Upload documents first"],
+        correct_index: 0,
+        explanation: "Make sure the Python FastAPI server is running. Start it with: cd backend && python main.py"
+      }]);
     } finally {
       setIsGeneratingQuiz(false);
     }

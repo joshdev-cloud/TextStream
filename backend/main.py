@@ -99,7 +99,7 @@ def get_embeddings():
     """Lazy-init and cache the embedding model."""
     global embeddings
     if embeddings is None:
-        print("🧠 Loading embedding model (all-MiniLM-L6-v2)...")
+        print("[Embedding] Loading model (all-MiniLM-L6-v2)...")
         embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     return embeddings
 
@@ -110,7 +110,7 @@ def get_vector_store():
     if vector_store is None:
         emb = get_embeddings()
         if os.path.exists(Config.DB_DIR) and len(os.listdir(Config.DB_DIR)) > 0:
-            print("💾 Loading existing ChromaDB vector store...")
+            print("[VectorStore] Loading existing ChromaDB vector store...")
             vector_store = Chroma(persist_directory=Config.DB_DIR, embedding_function=emb)
         else:
             # Build from documents folder
@@ -134,16 +134,16 @@ def rebuild_vector_store():
                 loader = PyPDFLoader(filepath)
                 all_docs.extend(loader.load())
             except Exception as e:
-                print(f"⚠️ Failed to load PDF {filename}: {e}")
+                print(f"[Warning] Failed to load PDF {filename}: {e}")
         elif filename.lower().endswith(".txt"):
             try:
                 loader = TextLoader(filepath)
                 all_docs.extend(loader.load())
             except Exception as e:
-                print(f"⚠️ Failed to load TXT {filename}: {e}")
+                print(f"[Warning] Failed to load TXT {filename}: {e}")
 
     if not all_docs:
-        print("⚠️ Documents folder is empty. Upload files to get started.")
+        print("[Warning] Documents folder is empty. Upload files to get started.")
         # Create an empty vector store
         vector_store = Chroma(persist_directory=Config.DB_DIR, embedding_function=emb)
         return
@@ -158,16 +158,30 @@ def rebuild_vector_store():
     for chunk in text_chunks:
         chunk.metadata["source"] = os.path.basename(chunk.metadata.get("source", "unknown"))
 
+    # Close existing vector store to release file locks (critical for Windows)
+    if vector_store is not None:
+        try:
+            # Release the underlying Chroma client connection
+            if hasattr(vector_store, '_client'):
+                vector_store._client.reset()
+            vector_store = None
+        except Exception as e:
+            print(f"[Warning] Could not cleanly close existing vector store: {e}")
+            vector_store = None
+
     # Wipe and rebuild
     if os.path.exists(Config.DB_DIR):
-        shutil.rmtree(Config.DB_DIR)
+        try:
+            shutil.rmtree(Config.DB_DIR)
+        except Exception as e:
+            print(f"[Warning] Could not delete old DB dir (will overwrite): {e}")
 
     vector_store = Chroma.from_documents(
         documents=text_chunks,
         embedding=emb,
         persist_directory=Config.DB_DIR,
     )
-    print(f"✅ Vector store rebuilt with {len(text_chunks)} chunks from {len(set(c.metadata['source'] for c in text_chunks))} files.")
+    print(f"[Success] Vector store rebuilt with {len(text_chunks)} chunks from {len(set(c.metadata['source'] for c in text_chunks))} files.")
 
 
 def ingest_single_file(filepath: str):
@@ -206,7 +220,7 @@ def ingest_single_file(filepath: str):
     else:
         vector_store.add_documents(chunks)
 
-    print(f"✅ Ingested {len(chunks)} chunks from {filename}")
+    print(f"[Success] Ingested {len(chunks)} chunks from {filename}")
 
 
 def build_filtered_retriever(document_names: List[str], k: int = None):
@@ -230,10 +244,10 @@ def build_filtered_retriever(document_names: List[str], k: int = None):
 # ──────────────────────────── Startup ────────────────────────────
 
 @app.on_event("startup")
-def startup_event():
-    print("🤖 Initializing TextStream Core Systems...")
+async def startup_event():
+    print("[System] Initializing TextStream Core Systems...")
     get_vector_store()
-    print("✅ TextStream backend ready.")
+    print("[Success] TextStream backend ready.")
 
 
 # ──────────────────────────── API Endpoints ────────────────────────────
@@ -251,8 +265,7 @@ def chat_with_documents(request: ChatRequest):
         "You are an expert study assistant modeled after NotebookLM. "
         "Answer the question using ONLY the context provided below. "
         "Be thorough, educational, and format your response with markdown for readability. "
-        "If you cannot confidently deduce the answer from this data, state: "
-        "'I cannot verify that item based on your documents.'\n\n"
+        "If you cannot confidently deduce the answer from this data, try to state from web sources but ensure you inform the user that this is from another source.'\n\n"
         "Context:\n{context}"
     )
     prompt = ChatPromptTemplate.from_messages([
@@ -283,7 +296,7 @@ def chat_with_documents(request: ChatRequest):
         return ChatResponse(answer=output["answer"], sources=sources_list)
 
     except Exception as err:
-        print(f"❌ Chat error: {err}")
+        print(f"[Error] Chat error: {err}")
         raise HTTPException(status_code=500, detail=str(err))
 
 
@@ -352,7 +365,7 @@ def summarize_documents(request: SummarizeRequest):
         )
 
     except Exception as err:
-        print(f"❌ Summarize error: {err}")
+        print(f"[Error] Summarize error: {err}")
         raise HTTPException(status_code=500, detail=str(err))
 
 
@@ -438,7 +451,7 @@ def generate_quiz(request: QuizRequest):
         return QuizResponse(questions=questions)
 
     except Exception as err:
-        print(f"❌ Quiz error: {err}")
+        print(f"[Error] Quiz error: {err}")
         raise HTTPException(status_code=500, detail=str(err))
 
 
@@ -454,7 +467,7 @@ async def upload_document(file: UploadFile = File(...)):
         content = await file.read()
         with open(filepath, "wb") as f:
             f.write(content)
-        print(f"📄 Saved uploaded file: {filepath}")
+        print(f"[File] Saved uploaded file: {filepath}")
 
         # Index into ChromaDB
         ingest_single_file(filepath)
@@ -462,7 +475,7 @@ async def upload_document(file: UploadFile = File(...)):
         return {"success": True, "filename": file.filename, "message": f"Indexed {file.filename} into vector store."}
 
     except Exception as err:
-        print(f"❌ Upload error: {err}")
+        print(f"[Error] Upload error: {err}")
         raise HTTPException(status_code=500, detail=str(err))
 
 
@@ -473,7 +486,7 @@ def sync_documents():
         rebuild_vector_store()
         return {"success": True, "message": "Vector store rebuilt from documents folder."}
     except Exception as err:
-        print(f"❌ Sync error: {err}")
+        print(f"[Error] Sync error: {err}")
         raise HTTPException(status_code=500, detail=str(err))
 
 
@@ -496,5 +509,6 @@ def list_documents():
 
 
 if __name__ == "__main__":
+    # pyrefly: ignore [missing-import]
     import uvicorn
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)

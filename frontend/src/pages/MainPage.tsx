@@ -287,11 +287,10 @@ export function MainPage() {
                       key={m}
                       type="button"
                       onClick={() => setNewSessionMode(m)}
-                      className={`py-4 rounded-2xl border text-xs font-bold transition-all flex flex-col items-center gap-2 ${
-                        newSessionMode === m
-                          ? "bg-amber-glow/15 border-amber-glow text-amber-glow glow-amber scale-[1.02]"
-                          : "glass border-border/50 hover:bg-secondary/40 text-muted-foreground"
-                      }`}
+                      className={`py-4 rounded-2xl border text-xs font-bold transition-all flex flex-col items-center gap-2 ${newSessionMode === m
+                        ? "bg-amber-glow/15 border-amber-glow text-amber-glow glow-amber scale-[1.02]"
+                        : "glass border-border/50 hover:bg-secondary/40 text-muted-foreground"
+                        }`}
                     >
                       {MODE_ICONS[m]}
                       {m}
@@ -313,9 +312,8 @@ export function MainPage() {
                         key={color}
                         type="button"
                         onClick={() => setNewSessionAccent(color)}
-                        className={`size-10 rounded-full border transition flex items-center justify-center ${c.bg} ${c.border} ${
-                          active ? "ring-2 ring-foreground scale-110" : "hover:scale-105"
-                        }`}
+                        className={`size-10 rounded-full border transition flex items-center justify-center ${c.bg} ${c.border} ${active ? "ring-2 ring-foreground scale-110" : "hover:scale-105"
+                          }`}
                         aria-label={`Select ${color} accent`}
                       >
                         <span className={`size-4 rounded-full ${c.bg.replace("/10", "")} ${c.text}`} />
@@ -381,9 +379,8 @@ export function MainPage() {
                       />
                       <label
                         htmlFor="main-pdf-upload"
-                        className={`glass rounded-2xl px-4 py-2 border border-border/50 text-xs font-semibold cursor-pointer hover:bg-secondary/45 transition flex items-center gap-2 ${
-                          isUploading ? "opacity-50 pointer-events-none" : ""
-                        }`}
+                        className={`glass rounded-2xl px-4 py-2 border border-border/50 text-xs font-semibold cursor-pointer hover:bg-secondary/45 transition flex items-center gap-2 ${isUploading ? "opacity-50 pointer-events-none" : ""
+                          }`}
                       >
                         {isUploading ? (
                           <>
@@ -508,7 +505,7 @@ export function MainPage() {
                 <div className="flex items-center gap-2">
                   <span className="size-2.5 rounded-full bg-coral glow-coral animate-pulse" />
                   <h2 className="text-sm font-semibold tracking-wide uppercase text-muted-foreground flex items-center gap-2">
-                    <Trash2 className="size-4" /> Trash Vault
+                    <Trash2 className="size-4" /> Recycle Bin
                   </h2>
                 </div>
                 <div className="flex items-center gap-3">
@@ -567,11 +564,10 @@ export function MainPage() {
                   setCurrentModel("velocity");
                   setShowAiPopup(false);
                 }}
-                className={`w-full text-left rounded-2xl p-4 transition border ${
-                  currentModel === "velocity"
-                    ? "bg-lavender/10 border-lavender glow-lavender text-foreground"
-                    : "glass border-transparent hover:bg-secondary/40 text-muted-foreground"
-                }`}
+                className={`w-full text-left rounded-2xl p-4 transition border ${currentModel === "velocity"
+                  ? "bg-lavender/10 border-lavender glow-lavender text-foreground"
+                  : "glass border-transparent hover:bg-secondary/40 text-muted-foreground"
+                  }`}
               >
                 <p className="text-sm font-bold flex items-center gap-1.5">
                   <Zap className="size-4 text-lavender" /> Velocity Core
@@ -586,11 +582,10 @@ export function MainPage() {
                   setCurrentModel("deep");
                   setShowAiPopup(false);
                 }}
-                className={`w-full text-left rounded-2xl p-4 transition border ${
-                  currentModel === "deep"
-                    ? "bg-amber-glow/10 border-amber-glow glow-amber text-foreground"
-                    : "glass border-transparent hover:bg-secondary/40 text-muted-foreground"
-                }`}
+                className={`w-full text-left rounded-2xl p-4 transition border ${currentModel === "deep"
+                  ? "bg-amber-glow/10 border-amber-glow glow-amber text-foreground"
+                  : "glass border-transparent hover:bg-secondary/40 text-muted-foreground"
+                  }`}
               >
                 <p className="text-sm font-bold flex items-center gap-1.5">
                   <Calendar className="size-4 text-amber-glow" /> Deep Thinker
@@ -683,11 +678,10 @@ function InteractiveSessionCard({
       <Link
         to="/workspace"
         onClick={onSelect}
-        className={`glass rounded-3xl p-5 border transition-all duration-300 flex flex-col h-full hover:scale-[1.01] hover:brightness-105 group relative ${
-          isActive
-            ? "border-mint/60 bg-mint/5 glow-mint shadow-mint ring-1 ring-mint/35"
-            : a.border
-        }`}
+        className={`glass rounded-3xl p-5 border transition-all duration-300 flex flex-col h-full hover:scale-[1.01] hover:brightness-105 group relative ${isActive
+          ? "border-mint/60 bg-mint/5 glow-mint shadow-mint ring-1 ring-mint/35"
+          : a.border
+          }`}
       >
         {/* Header */}
         <div className="flex items-start justify-between mb-3">

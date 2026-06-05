@@ -104,154 +104,9 @@ export type DocumentAction =
 
 /* ──────────────────────────── Mock Data ──────────────────────────── */
 
-const MOCK_DOCUMENTS: Document[] = [
-  {
-    id: "doc-1",
-    name: "orgo-notes.pdf",
-    pages: 28,
-    active: true,
-    uploadedAt: "2026-05-28T10:00:00Z",
-  },
-  {
-    id: "doc-2",
-    name: "clayden-ch17.pdf",
-    pages: 142,
-    active: true,
-    uploadedAt: "2026-05-27T14:30:00Z",
-  },
-  {
-    id: "doc-3",
-    name: "lecture-2026-05-28.pdf",
-    pages: 12,
-    active: false,
-    uploadedAt: "2026-05-28T16:00:00Z",
-  },
-];
+/* Mock documents removed — documents are now synced from the real backend/documents folder */
 
-const MOCK_SESSIONS: StudySession[] = [
-  {
-    id: "sess-1",
-    title: "Organic Chemistry — Semester Cram",
-    mode: "MAJORS EXAM",
-    createdAt: "2026-06-01T09:00:00Z",
-    documentCount: 2,
-    messageCount: 3,
-    status: "active",
-    accent: "amber",
-    documentIds: ["doc-1", "doc-2"],
-    lastWorkedAt: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(), // 1 hour ago (Recent)
-    messages: [
-      {
-        id: "msg-1",
-        role: "user",
-        content: "Can you explain SN1 vs SN2 reactions based on the lecture notes?",
-        timestamp: "2026-06-01T09:01:00Z",
-      },
-      {
-        id: "msg-2",
-        role: "ai",
-        content: "Sure! SN1 is a two-step unimolecular reaction — rate depends only on the substrate. SN2 is a one-step bimolecular reaction with backside attack and inversion of stereochemistry.",
-        timestamp: "2026-06-01T09:01:30Z",
-        evidence: [
-          {
-            file: "orgo-notes.pdf",
-            page: 4,
-            snippet: "SN1 proceeds through a carbocation intermediate, favored by polar protic solvents...",
-          },
-          {
-            file: "clayden-ch17.pdf",
-            page: 612,
-            snippet: "SN2 reactions exhibit second-order kinetics; rate = k[Nu][R-X].",
-          },
-        ],
-      },
-      {
-        id: "msg-3",
-        role: "user",
-        content: "Quiz me on this chapter.",
-        timestamp: "2026-06-01T09:02:15Z",
-      },
-    ],
-  },
-  {
-    id: "sess-2",
-    title: "Thermodynamics Deep Dive",
-    mode: "FOCUS MODE",
-    createdAt: "2026-05-29T14:00:00Z",
-    documentCount: 2,
-    messageCount: 2,
-    status: "completed",
-    accent: "lavender",
-    documentIds: ["doc-2", "doc-3"],
-    lastWorkedAt: new Date(Date.now() - 2.5 * 60 * 60 * 1000).toISOString(), // 2.5 hours ago (Recent)
-    messages: [
-      {
-        id: "msg-4",
-        role: "user",
-        content: "What is the second law of thermodynamics?",
-        timestamp: "2026-05-29T14:02:00Z",
-      },
-      {
-        id: "msg-5",
-        role: "ai",
-        content: "The Second Law of Thermodynamics states that the total entropy of an isolated system can never decrease over time. In simple terms, heat cannot spontaneously flow from a cooler body to a warmer body.",
-        timestamp: "2026-05-29T14:02:40Z",
-      },
-    ],
-  },
-  {
-    id: "sess-3",
-    title: "Cell Biology Review",
-    mode: "RESEARCH MODE",
-    createdAt: "2026-05-25T11:30:00Z",
-    documentCount: 1,
-    messageCount: 1,
-    status: "completed",
-    accent: "mint",
-    documentIds: ["doc-1"],
-    lastWorkedAt: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(), // 12 hours ago (Continue Working)
-    messages: [
-      {
-        id: "msg-6",
-        role: "user",
-        content: "What is the main function of the mitochondria?",
-        timestamp: "2026-05-25T11:32:00Z",
-      },
-      {
-        id: "msg-7",
-        role: "ai",
-        content: "The mitochondria are the powerhouses of the cell, primarily responsible for generating adenosine triphosphate (ATP) through aerobic cellular respiration.",
-        timestamp: "2026-05-25T11:32:45Z",
-      },
-    ],
-  },
-  {
-    id: "sess-4",
-    title: "Linear Algebra Refresher",
-    mode: "FOCUS MODE",
-    createdAt: "2026-05-20T08:00:00Z",
-    documentCount: 0,
-    messageCount: 0,
-    status: "archived",
-    accent: "coral",
-    documentIds: [],
-    lastWorkedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), // 24 hours ago (Continue Working)
-    messages: [],
-  },
-  {
-    id: "sess-5",
-    title: "Electromagnetism — Maxwell's Equations",
-    mode: "RESEARCH MODE",
-    createdAt: "2026-05-18T16:45:00Z",
-    documentCount: 0,
-    messageCount: 0,
-    status: "archived",
-    accent: "lavender",
-    documentIds: [],
-    lastWorkedAt: new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString(), // 3 days ago (Continue Working)
-    messages: [],
-  },
-];
+/* Mock sessions removed — all sessions are now created by the user */
 
 /* ──────────────────────────── Reducer ──────────────────────────── */
 
@@ -471,7 +326,7 @@ const DocumentContext = createContext<DocumentContextValue | null>(null);
 export function DocumentProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(documentReducer, {
     documents: [], // Starts clean (no pseudo PDFs)
-    sessions: MOCK_SESSIONS,
+    sessions: [], // Starts clean (no mock sessions)
     theme: "dark",
     currentModel: "velocity",
     activeSessionId: null, // Clear initial active session so it is only active on explicit click
@@ -504,7 +359,7 @@ export function DocumentProvider({ children }: { children: ReactNode }) {
           type: "REHYDRATE_STATE",
           payload: {
             documents: storedDocs ? JSON.parse(storedDocs) : [],
-            sessions: storedSessions ? JSON.parse(storedSessions) : MOCK_SESSIONS,
+            sessions: storedSessions ? JSON.parse(storedSessions) : [],
             studyGoalHours: storedGoal ? parseInt(storedGoal, 10) : 2,
           },
         });

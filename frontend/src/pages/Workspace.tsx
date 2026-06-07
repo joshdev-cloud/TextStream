@@ -696,7 +696,7 @@ export function Workspace() {
                 >
                   {activeSession.messages && activeSession.messages.length > 0 ? (
                     activeSession.messages.map((msg) => (
-                      <ChatBubble key={msg.id} role={msg.role}>
+                      <ChatBubble key={msg.id} role={msg.role} timestamp={msg.timestamp}>
                         <div className="leading-relaxed whitespace-pre-wrap text-sm">{msg.content}</div>
                         {msg.evidence && msg.evidence.length > 0 && (
                           <div className="mt-3 flex flex-wrap gap-2">

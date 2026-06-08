@@ -252,8 +252,17 @@ export function useDocumentManager() {
   /** Streak count */
   const streakCount = state.streakCount;
 
+  /** Quizzes taken count */
+  const quizzesTaken = state.quizzesTaken;
+
   /** Global Vault Modal state */
   const showGlobalVaultModal = state.showGlobalVaultModal;
+
+  /** Increment quizzes taken */
+  const incrementQuizzesTaken = useCallback(() => {
+    console.log(`${LOG_PREFIX} incrementQuizzesTaken()`);
+    dispatch({ type: "INCREMENT_QUIZZES_TAKEN" });
+  }, [dispatch]);
 
   /** Toggle the global vault manager modal */
   const toggleGlobalVault = useCallback((show?: boolean) => {
@@ -302,6 +311,7 @@ export function useDocumentManager() {
     activeSession,
     studyGoalHours,
     streakCount,
+    quizzesTaken,
     showGlobalVaultModal,
     setActiveSessionId,
     toggleDocument,
@@ -326,5 +336,6 @@ export function useDocumentManager() {
     deleteDocument,
     endSession,
     emptyTrash,
+    incrementQuizzesTaken,
   };
 }

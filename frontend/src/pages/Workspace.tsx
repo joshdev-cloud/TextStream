@@ -595,6 +595,7 @@ export function Workspace() {
                 setPopup(null);
                 setQuizQuestions([]);
               }}
+              onComplete={incrementQuizzesTaken}
             />
           </div>
         ) : (
@@ -1435,6 +1436,7 @@ function ActiveQuizView({
   questions: QuizQuestion[];
   isGenerating: boolean;
   onClose: () => void;
+  onComplete: () => void;
 }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
@@ -1542,10 +1544,12 @@ function ActiveQuizView({
     setSelectedOption(null);
     if (mode === "sudden" && selectedOption !== currentQuestion.correct_index) {
       setShowResult(true);
+      onComplete();
     } else if (currentIndex < questions.length - 1) {
       setCurrentIndex((prev) => prev + 1);
     } else {
       setShowResult(true);
+      onComplete();
     }
   };
 

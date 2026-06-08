@@ -71,6 +71,7 @@ export interface DocumentState {
   studyGoalHours: number;
   streakCount: number; // Consecutive calendar days visited
   showGlobalVaultModal: boolean; // Flag to show/hide the global vault manager modal
+  quizzesTaken: number; // Number of quizzes completed
 }
 
 /* ──────────────────────────── Actions ──────────────────────────── */
@@ -100,7 +101,8 @@ export type DocumentAction =
   | { type: "TOGGLE_GLOBAL_VAULT"; payload?: boolean }
   | { type: "SYNC_DOCUMENTS"; payload: Document[] }
   | { type: "END_SESSION_MOVE_TO_CONTINUE"; payload: { id: string } }
-  | { type: "EMPTY_TRASH" };
+  | { type: "EMPTY_TRASH" }
+  | { type: "INCREMENT_QUIZZES_TAKEN" };
 
 /* ──────────────────────────── Mock Data ──────────────────────────── */
 
@@ -301,11 +303,17 @@ function documentReducer(
         documents: action.payload.documents,
         sessions: action.payload.sessions,
         studyGoalHours: action.payload.studyGoalHours,
+        quizzesTaken: (action.payload as any).quizzesTaken || 0,
       };
     case "SET_STREAK":
       return {
         ...state,
         streakCount: action.payload,
+      };
+    case "INCREMENT_QUIZZES_TAKEN":
+      return {
+        ...state,
+        quizzesTaken: state.quizzesTaken + 1,
       };
     default:
       return state;
@@ -333,6 +341,7 @@ export function DocumentProvider({ children }: { children: ReactNode }) {
     studyGoalHours: 2, // Default daily study goal is 2 hours
     streakCount: 1, // Default streak count is 1
     showGlobalVaultModal: false, // Hidden by default
+    quizzesTaken: 0, // Starts at 0
   });
 
   // Apply theme class to HTML node on change
@@ -353,15 +362,17 @@ export function DocumentProvider({ children }: { children: ReactNode }) {
       const storedDocs = localStorage.getItem("textstream_documents");
       const storedSessions = localStorage.getItem("textstream_sessions");
       const storedGoal = localStorage.getItem("textstream_study_goal");
+      const storedQuizzes = localStorage.getItem("textstream_quizzes_taken");
 
-      if (storedDocs || storedSessions || storedGoal) {
+      if (storedDocs || storedSessions || storedGoal || storedQuizzes) {
         dispatch({
           type: "REHYDRATE_STATE",
           payload: {
             documents: storedDocs ? JSON.parse(storedDocs) : [],
             sessions: storedSessions ? JSON.parse(storedSessions) : [],
             studyGoalHours: storedGoal ? parseInt(storedGoal, 10) : 2,
-          },
+            quizzesTaken: storedQuizzes ? parseInt(storedQuizzes, 10) : 0,
+          } as any,
         });
       }
     }
@@ -373,8 +384,9 @@ export function DocumentProvider({ children }: { children: ReactNode }) {
       localStorage.setItem("textstream_documents", JSON.stringify(state.documents));
       localStorage.setItem("textstream_sessions", JSON.stringify(state.sessions));
       localStorage.setItem("textstream_study_goal", state.studyGoalHours.toString());
+      localStorage.setItem("textstream_quizzes_taken", state.quizzesTaken.toString());
     }
-  }, [state.documents, state.sessions, state.studyGoalHours]);
+  }, [state.documents, state.sessions, state.studyGoalHours, state.quizzesTaken]);
 
   // Day Streak logic on mount
   useEffect(() => {

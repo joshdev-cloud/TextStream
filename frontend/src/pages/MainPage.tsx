@@ -103,6 +103,7 @@ export function MainPage() {
     endSession,
     emptyTrash,
     renameSession,
+    quizzesTaken,
   } = useDocumentManager();
 
   const [showAiPopup, setShowAiPopup] = useState(false);
@@ -434,7 +435,7 @@ export function MainPage() {
                   <StatCard
                     icon={<GraduationCap className="size-4" />}
                     label="Quizzes Taken"
-                    value="7"
+                    value={quizzesTaken.toString()}
                     accent="coral"
                   />
                 </div>

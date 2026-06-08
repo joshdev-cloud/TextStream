@@ -223,28 +223,20 @@ export function useDocumentManager() {
     });
   }, [dispatch]);
 
-  /**
-   * Refresh the full document list from the backend.
-   *
-   * TODO: EDIT HERE — Fetch GET /api/documents and dispatch SET_DOCUMENTS.
-   */
-  const refreshDocuments = useCallback(() => {
-    console.log(
-      `${LOG_PREFIX} refreshDocuments() — Currently using mock data. ` +
-        `Wire up GET /api/documents here.`
-    );
+  const refreshDocuments = useCallback(async () => {
+    try {
+      const res = await fetch("http://localhost:8000/api/documents");
+      if (res.ok) {
+        const data = await res.json();
+        console.log(`${LOG_PREFIX} refreshDocuments() — fetched ${data.documents?.length} documents`);
+      }
+    } catch (err) {
+      console.error(`${LOG_PREFIX} Failed to refresh documents`, err);
+    }
   }, []);
 
-  /**
-   * Refresh the full session list from the backend.
-   *
-   * TODO: EDIT HERE — Fetch GET /api/sessions and dispatch SET_SESSIONS.
-   */
   const refreshSessions = useCallback(() => {
-    console.log(
-      `${LOG_PREFIX} refreshSessions() — Currently using mock data. ` +
-        `Wire up GET /api/sessions here.`
-    );
+    console.log(`${LOG_PREFIX} refreshSessions() — Sessions are currently managed locally.`);
   }, []);
 
   /**

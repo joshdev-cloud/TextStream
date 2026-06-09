@@ -9,4 +9,4 @@ __pycache__/
 *.pyc
 
 # Optional: Ignore your personal document storage if they contain private info
-# documents/
+backend/documents/

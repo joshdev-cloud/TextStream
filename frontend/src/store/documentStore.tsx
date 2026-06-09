@@ -359,12 +359,20 @@ export function DocumentProvider({ children }: { children: ReactNode }) {
   // Load state from localStorage on mount (client-only)
   useEffect(() => {
     if (typeof window !== "undefined") {
+      // Auto-purge old mock sessions once
+      const hasPurged = localStorage.getItem("textstream_purged_mocks_v2");
+      if (!hasPurged) {
+        localStorage.removeItem("textstream_sessions");
+        localStorage.setItem("textstream_purged_mocks_v2", "true");
+      }
+
       const storedDocs = localStorage.getItem("textstream_documents");
       const storedSessions = localStorage.getItem("textstream_sessions");
       const storedGoal = localStorage.getItem("textstream_study_goal");
       const storedQuizzes = localStorage.getItem("textstream_quizzes_taken");
+      const storedActiveSession = localStorage.getItem("textstream_active_session");
 
-      if (storedDocs || storedSessions || storedGoal || storedQuizzes) {
+      if (storedDocs || storedSessions || storedGoal || storedQuizzes || storedActiveSession) {
         dispatch({
           type: "REHYDRATE_STATE",
           payload: {
@@ -374,6 +382,10 @@ export function DocumentProvider({ children }: { children: ReactNode }) {
             quizzesTaken: storedQuizzes ? parseInt(storedQuizzes, 10) : 0,
           } as any,
         });
+        
+        if (storedActiveSession) {
+          dispatch({ type: "SET_ACTIVE_SESSION", payload: storedActiveSession });
+        }
       }
     }
   }, []);
@@ -385,8 +397,31 @@ export function DocumentProvider({ children }: { children: ReactNode }) {
       localStorage.setItem("textstream_sessions", JSON.stringify(state.sessions));
       localStorage.setItem("textstream_study_goal", state.studyGoalHours.toString());
       localStorage.setItem("textstream_quizzes_taken", state.quizzesTaken.toString());
+      if (state.activeSessionId) {
+        localStorage.setItem("textstream_active_session", state.activeSessionId);
+      } else {
+        localStorage.removeItem("textstream_active_session");
+      }
     }
-  }, [state.documents, state.sessions, state.studyGoalHours, state.quizzesTaken]);
+  }, [state.documents, state.sessions, state.studyGoalHours, state.quizzesTaken, state.activeSessionId]);
+
+  // Sync state across multiple tabs (global store sync)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "textstream_sessions" && e.newValue) {
+        dispatch({ type: "SET_SESSIONS", payload: JSON.parse(e.newValue) });
+      } else if (e.key === "textstream_documents" && e.newValue) {
+        dispatch({ type: "SET_DOCUMENTS", payload: JSON.parse(e.newValue) });
+      } else if (e.key === "textstream_active_session") {
+        dispatch({ type: "SET_ACTIVE_SESSION", payload: e.newValue });
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
 
   // Day Streak logic on mount
   useEffect(() => {

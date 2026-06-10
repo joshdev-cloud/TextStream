@@ -9,6 +9,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { Moon, Sun, Sparkles, Home, BookOpen, Folder } from "lucide-react";
 import { ModelBadge, type ModelKey } from "@/components/ui/ModelBadge";
 import { useDocumentManager } from "@/hooks/useDocumentManager";
+import { GlobalMenu } from "@/components/layout/GlobalMenu";
 
 interface NavbarProps {
   model?: ModelKey;
@@ -31,13 +32,14 @@ export function Navbar({ model: propModel, onModelClick, subtitle: propSubtitle 
     <header className="flex items-center justify-between px-6 py-4 border-b border-border/40 backdrop-blur-md sticky top-0 z-30 bg-canvas/40">
       {/* Left: Branding */}
       <div className="flex items-center gap-3">
+        <GlobalMenu />
         <div className="size-9 rounded-2xl bg-gradient-to-br from-amber-glow to-coral grid place-items-center glow-amber">
           <Sparkles className="size-4 text-primary-foreground" />
         </div>
         <div>
           <h1 className="text-base font-bold tracking-tight">
-            🌊 TextStream{" "}
-            <span className="text-muted-foreground font-medium">
+            TextStream{" "}
+            <span className="text-muted-foreground font-medium hidden sm:inline-block">
               // Study Space
             </span>
           </h1>

@@ -1,4 +1,6 @@
 import { X, HelpCircle, Info, Mail } from "lucide-react";
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 
 export type InfoModalType = "help" | "info" | "contact" | null;
 
@@ -8,7 +10,13 @@ interface InfoModalProps {
 }
 
 export function InfoModal({ type, onClose }: InfoModalProps) {
-  if (!type) return null;
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!type || !mounted) return null;
 
   const content = {
     help: {
@@ -78,8 +86,8 @@ export function InfoModal({ type, onClose }: InfoModalProps) {
 
   const activeContent = content[type];
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in">
       <div 
         className="absolute inset-0" 
         onClick={onClose}
@@ -112,6 +120,7 @@ export function InfoModal({ type, onClose }: InfoModalProps) {
           {activeContent.body}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

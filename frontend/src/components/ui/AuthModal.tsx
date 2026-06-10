@@ -1,5 +1,6 @@
 import { X, Sparkles, Mail, Lock, Github, Chrome } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -9,11 +10,16 @@ interface AuthModalProps {
 export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [mounted, setMounted] = useState(false);
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
+  if (!isOpen || !mounted) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in">
       <div 
         className="absolute inset-0" 
         onClick={onClose}
@@ -116,6 +122,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
           </button>
         </p>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

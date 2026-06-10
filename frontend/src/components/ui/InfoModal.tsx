@@ -65,12 +65,26 @@ export function InfoModal({ type, onClose }: InfoModalProps) {
       body: (
         <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
           <div>
+            <label className="block text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-1">Email Address</label>
+            <input 
+              type="email"
+              placeholder="you@university.edu"
+              className="w-full p-3 text-sm transition border outline-none bg-secondary/35 border-border/50 rounded-2xl placeholder:text-muted-foreground focus:ring-1 focus:ring-amber-glow/60 focus:border-amber-glow"
+            />
+          </div>
+          <div>
             <label className="block text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-1">Your Message</label>
             <textarea 
               rows={4}
               placeholder="How can we help you improve your study sessions?"
               className="w-full p-3 text-sm transition border outline-none resize-none bg-secondary/35 border-border/50 rounded-2xl placeholder:text-muted-foreground focus:ring-1 focus:ring-amber-glow/60 focus:border-amber-glow"
             />
+          </div>
+          <div className="flex items-center gap-2 mt-2">
+            <label className="flex items-center gap-2 cursor-pointer group text-xs">
+              <input type="checkbox" className="rounded bg-secondary/50 border-border/50 text-amber-glow focus:ring-amber-glow/50 cursor-pointer" />
+              <span className="font-medium transition text-muted-foreground group-hover:text-foreground">Notify me of updates or responses</span>
+            </label>
           </div>
           <button
             type="button"

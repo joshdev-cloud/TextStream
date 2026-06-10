@@ -36,6 +36,7 @@ import {
 import { Navbar } from "@/components/layout/Navbar";
 import { MainContainer } from "@/components/layout/MainContainer";
 import { ProductivityBar } from "@/components/ui/ProductivityBar";
+import { UploadMenu } from "@/components/ui/UploadMenu";
 import { useDocumentManager } from "@/hooks/useDocumentManager";
 import type { StudySession, StudyMode } from "@/store/documentStore";
 import { uploadLocalDocument } from "@/lib/api/document.functions";
@@ -370,31 +371,11 @@ export function MainPage() {
                     </p>
 
                     <div className="mt-4 flex items-center gap-2 flex-wrap">
-                      <input
-                        type="file"
-                        id="main-pdf-upload"
-                        accept=".pdf,.txt"
-                        className="hidden"
-                        onChange={handleFileUpload}
-                        disabled={isUploading}
+                      <UploadMenu 
+                        variant="dashboard"
+                        onLocalUpload={handleFileUpload}
+                        isUploading={isUploading}
                       />
-                      <label
-                        htmlFor="main-pdf-upload"
-                        className={`glass rounded-2xl px-4 py-2 border border-border/50 text-xs font-semibold cursor-pointer hover:bg-secondary/45 transition flex items-center gap-2 ${isUploading ? "opacity-50 pointer-events-none" : ""
-                          }`}
-                      >
-                        {isUploading ? (
-                          <>
-                            <Loader2 className="size-3.5 text-amber-glow animate-spin" />
-                            Uploading PDF...
-                          </>
-                        ) : (
-                          <>
-                            <Upload className="size-3.5 text-amber-glow" />
-                            Upload PDF to Global Vault
-                          </>
-                        )}
-                      </label>
                       <span className="text-[10px] text-muted-foreground">
                         Supports PDF, TXT up to 50MB
                       </span>

@@ -43,6 +43,7 @@ import {
   ZoomOut,
   Highlighter,
   Loader2,
+  Paperclip,
 } from "lucide-react";
 import { Link, useNavigate } from "@tanstack/react-router";
 
@@ -56,6 +57,7 @@ import { PopupShell } from "@/components/ui/PopupShell";
 import { EngineCard } from "@/components/ui/EngineCard";
 import { ModuleLabel } from "@/components/ui/ModuleLabel";
 import { type ModelKey } from "@/components/ui/ModelBadge";
+import { UploadMenu } from "@/components/ui/UploadMenu";
 import { useDocumentManager } from "@/hooks/useDocumentManager";
 
 /* ──────────────────────────── Types ──────────────────────────── */
@@ -781,6 +783,12 @@ export function Workspace() {
                       : `Chat with ${currentModel === "velocity" ? "Velocity Core" : "Deep Thinker"} about your selected PDFs…`
                   }
                   disabled={workMode === "summarize"}
+                />
+
+                <UploadMenu 
+                  variant="workspace"
+                  onLocalUpload={handleWorkspaceUpload}
+                  isUploading={isUploading || workMode === "summarize"}
                 />
 
                 <button

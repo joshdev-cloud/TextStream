@@ -3,6 +3,7 @@ import { X, RefreshCw, FileText, Trash2, BookOpen, PlusCircle, Loader2 } from "l
 import { useDocumentManager } from "@/hooks/useDocumentManager";
 import { syncLocalDocuments, uploadLocalDocument } from "@/lib/api/document.functions";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
+import { UploadMenu } from "./UploadMenu";
 
 export function GlobalVaultModal() {
   const {
@@ -152,25 +153,11 @@ export function GlobalVaultModal() {
           </button>
 
           <div>
-            <input
-              type="file"
-              id="global-vault-upload"
-              accept=".pdf,.txt"
-              className="hidden"
-              onChange={handleFileUpload}
-              disabled={isUploading}
+            <UploadMenu 
+              variant="vault"
+              onLocalUpload={handleFileUpload}
+              isUploading={isUploading}
             />
-            <label
-              htmlFor="global-vault-upload"
-              className="px-4 py-2 bg-lavender hover:brightness-110 text-white font-bold text-xs rounded-xl flex items-center gap-2 transition glow-lavender cursor-pointer select-none"
-            >
-              {isUploading ? (
-                <Loader2 className="size-3.5 animate-spin" />
-              ) : (
-                <PlusCircle className="size-3.5" />
-              )}
-              {isUploading ? "Uploading File..." : "Upload PDF to Vault"}
-            </label>
           </div>
         </div>
 

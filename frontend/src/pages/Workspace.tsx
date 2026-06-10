@@ -1061,32 +1061,7 @@ export function Workspace() {
                 </div>
               )}
 
-              {/* Upload to Session */}
-              <input
-                type="file"
-                id="workspace-pdf-upload"
-                accept=".pdf,.txt"
-                className="hidden"
-                onChange={handleWorkspaceUpload}
-              />
-              <label
-                htmlFor="workspace-pdf-upload"
-                className={`mt-3 w-full rounded-2xl border-2 border-dashed border-amber-glow/40 bg-amber-glow/5 hover:bg-amber-glow/10 transition py-3 flex items-center justify-center gap-2 text-amber-glow font-semibold cursor-pointer text-xs ${
-                  isUploading ? "opacity-50 pointer-events-none" : ""
-                }`}
-              >
-                {isUploading ? (
-                  <>
-                    <Loader2 className="size-4 animate-spin text-amber-glow" />
-                    Ingesting & indexing PDF...
-                  </>
-                ) : (
-                  <>
-                    <Plus className="size-4" />
-                    Upload PDF to Session
-                  </>
-                )}
-              </label>
+
 
               {/* Add from Global Vault */}
               {globalDocumentsNotInSession.length > 0 && (

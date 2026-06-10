@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from "react";
-import { Upload, HardDrive, Paperclip, Loader2 } from "lucide-react";
+import { Upload, HardDrive, Paperclip, Loader2, PlusCircle } from "lucide-react";
 import { DrivePickerModal } from "./DrivePickerModal";
+import { createPortal } from "react-dom";
 
-export type UploadVariant = "dashboard" | "workspace";
+export type UploadVariant = "dashboard" | "workspace" | "vault";
 
 interface UploadMenuProps {
   variant: UploadVariant;
@@ -13,23 +14,42 @@ interface UploadMenuProps {
 export function UploadMenu({ variant, onLocalUpload, isUploading }: UploadMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [showDriveModal, setShowDriveModal] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const [coords, setCoords] = useState({ top: 0, left: 0, bottom: 0 });
 
   useEffect(() => {
+    function updateCoords() {
+      if (isOpen && menuRef.current) {
+        const rect = menuRef.current.getBoundingClientRect();
+        setCoords({ top: rect.top, left: rect.left, bottom: rect.bottom });
+      }
+    }
+    updateCoords();
+    
     function handleClickOutside(event: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        // We also need to check if they clicked inside the portal
+        const portal = document.getElementById("upload-menu-portal");
+        if (portal && portal.contains(event.target as Node)) {
+          return;
+        }
         setIsOpen(false);
       }
     }
+    
     if (isOpen) {
       document.addEventListener("mousedown", handleClickOutside);
+      window.addEventListener("scroll", updateCoords, true);
+      window.addEventListener("resize", updateCoords);
     }
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
+      window.addEventListener("scroll", updateCoords, true);
+      window.addEventListener("resize", updateCoords);
     };
   }, [isOpen]);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleLocalClick = () => {
     setIsOpen(false);
@@ -46,7 +66,7 @@ export function UploadMenu({ variant, onLocalUpload, isUploading }: UploadMenuPr
   return (
     <>
       <div className="relative" ref={menuRef}>
-        {variant === "dashboard" ? (
+        {variant === "dashboard" && (
           <button
             onClick={() => setIsOpen(!isOpen)}
             disabled={isUploading}
@@ -66,7 +86,9 @@ export function UploadMenu({ variant, onLocalUpload, isUploading }: UploadMenuPr
               </>
             )}
           </button>
-        ) : (
+        )}
+        
+        {variant === "workspace" && (
           <button
             onClick={() => setIsOpen(!isOpen)}
             disabled={isUploading}
@@ -79,10 +101,38 @@ export function UploadMenu({ variant, onLocalUpload, isUploading }: UploadMenuPr
           </button>
         )}
 
-        {isOpen && (
-          <div className={`absolute z-50 w-56 p-2 border shadow-xl glass-strong rounded-2xl border-border/40 animate-fade-in ${
-            variant === "workspace" ? "bottom-full left-0 mb-2" : "top-full left-0 mt-2"
-          }`}>
+        {variant === "vault" && (
+          <button
+            onClick={() => setIsOpen(!isOpen)}
+            disabled={isUploading}
+            className={`px-4 py-2 bg-lavender hover:brightness-110 text-white font-bold text-xs rounded-xl flex items-center gap-2 transition glow-lavender cursor-pointer select-none ${
+              isUploading ? "opacity-50 pointer-events-none" : ""
+            }`}
+          >
+            {isUploading ? (
+              <>
+                <Loader2 className="size-3.5 animate-spin" />
+                Uploading File...
+              </>
+            ) : (
+              <>
+                <PlusCircle className="size-3.5" />
+                Upload PDF to Vault
+              </>
+            )}
+          </button>
+        )}
+
+        {isOpen && createPortal(
+          <div 
+            id="upload-menu-portal"
+            className="fixed z-[9999] w-56 p-2 border shadow-xl glass-strong rounded-2xl border-border/40 animate-fade-in"
+            style={{
+              top: variant === "workspace" ? undefined : coords.bottom + 8,
+              bottom: variant === "workspace" ? window.innerHeight - coords.top + 8 : undefined,
+              left: coords.left
+            }}
+          >
             <div className="space-y-1">
               <button
                 onClick={handleLocalClick}
@@ -99,7 +149,8 @@ export function UploadMenu({ variant, onLocalUpload, isUploading }: UploadMenuPr
                 Google Drive
               </button>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
 
         <input

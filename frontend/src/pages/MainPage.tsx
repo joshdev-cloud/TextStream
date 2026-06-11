@@ -528,7 +528,7 @@ export function MainPage() {
 
       {/* AI popup helper */}
       {showAiPopup && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-canvas/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="glass-strong rounded-3xl p-6 max-w-md w-full relative">
             <button
               onClick={() => setShowAiPopup(false)}

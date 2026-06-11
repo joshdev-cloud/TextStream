@@ -34,13 +34,13 @@ export function DrivePickerModal({ isOpen, onClose }: DrivePickerModalProps) {
   ];
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-canvas/80 backdrop-blur-md animate-fade-in">
       <div 
         className="absolute inset-0" 
         onClick={onClose}
         aria-label="Close Modal Overlay"
       />
-      <div className="relative z-10 w-full max-w-2xl p-6 overflow-hidden border shadow-2xl glass-strong rounded-3xl animate-slide-up border-white/20 min-h-[400px] flex flex-col">
+      <div className="relative z-10 w-full max-w-2xl p-6 overflow-hidden border shadow-2xl glass-strong rounded-3xl animate-slide-up min-h-[400px] flex flex-col">
         <div className="absolute top-0 right-0 w-64 h-64 rounded-full pointer-events-none bg-blue-500/10 blur-3xl -translate-y-1/2 translate-x-1/4" />
         
         <div className="flex items-center justify-between mb-6 relative z-10">
@@ -68,7 +68,7 @@ export function DrivePickerModal({ isOpen, onClose }: DrivePickerModalProps) {
             <button
               onClick={handleConnect}
               disabled={isConnecting}
-              className="flex items-center gap-3 px-6 py-3 font-bold text-sm bg-white text-black rounded-2xl hover:bg-gray-100 transition cursor-pointer shadow-md"
+              className="flex items-center gap-3 px-6 py-3 font-bold text-sm bg-background text-foreground border border-border/50 rounded-2xl hover:bg-secondary/60 transition cursor-pointer shadow-md"
             >
               <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="G" className="size-5" />
               {isConnecting ? "Connecting..." : "Sign in with Google"}

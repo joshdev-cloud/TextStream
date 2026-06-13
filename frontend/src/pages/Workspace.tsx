@@ -174,6 +174,7 @@ export function Workspace() {
     streakCount,
     endSession,
     setActiveSessionId,
+    incrementQuizzesTaken,
   } = useDocumentManager();
 
   const [popup, setPopup] = useState<Popup>(null);
@@ -1483,6 +1484,25 @@ function ActiveQuizView({
   }
 
   const currentQuestion = questions[currentIndex];
+
+  if (!currentQuestion || !Array.isArray(currentQuestion.options)) {
+    return (
+      <div className="glass-strong rounded-3xl p-8 border border-border/40 shadow-glass text-center py-16">
+        <ShieldAlert className="size-12 text-coral mx-auto mb-4 animate-pulse" />
+        <h3 className="font-display text-xl font-bold">Quiz Generation Error</h3>
+        <p className="text-sm text-muted-foreground mt-2 max-w-sm mx-auto">
+          The AI returned an improperly formatted question without valid options. Please try regenerating the quiz.
+        </p>
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-6 px-6 py-2.5 rounded-full bg-secondary text-foreground hover:bg-secondary/80 font-semibold text-sm transition"
+        >
+          Go Back
+        </button>
+      </div>
+    );
+  }
 
   if (showResult) {
     const percent = Math.round((score / questions.length) * 100);

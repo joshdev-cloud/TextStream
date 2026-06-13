@@ -78,20 +78,20 @@ class DocumentInfo(BaseModel):
 
 # ──────────────────────────── Helpers ────────────────────────────
 
-def get_llm(model_key: str):
+def get_llm(model_key: str, temperature: float = 0.1):
     """Instantiate the correct LLM based on frontend model key."""
     if model_key == "deep":
         return ChatGoogleGenerativeAI(
             google_api_key=Config.GEMINI_API_KEY,
             model=Config.GEMINI_MODEL,
-            temperature=0.1,
+            temperature=temperature,
         )
     else:
         # Default to Groq / Velocity
         return ChatGroq(
             groq_api_key=Config.GROQ_API_KEY,
             model_name=Config.GROQ_MODEL,
-            temperature=0.1,
+            temperature=temperature,
         )
 
 
@@ -235,10 +235,14 @@ def build_filtered_retriever(document_names: List[str], k: int = None):
         # ChromaDB where filter: source must be one of the specified filenames
         search_filter = {"source": {"$in": document_names}}
         return vs.as_retriever(
-            search_kwargs={"k": top_k, "filter": search_filter}
+            search_type="mmr",
+            search_kwargs={"k": top_k, "fetch_k": min(top_k * 4, 100), "filter": search_filter}
         )
     else:
-        return vs.as_retriever(search_kwargs={"k": top_k})
+        return vs.as_retriever(
+            search_type="mmr",
+            search_kwargs={"k": top_k, "fetch_k": min(top_k * 4, 100)}
+        )
 
 
 # ──────────────────────────── Startup ────────────────────────────
@@ -345,7 +349,8 @@ def summarize_documents(request: SummarizeRequest):
     rag_chain = create_retrieval_chain(retriever, qa_chain)
 
     try:
-        output = rag_chain.invoke({"input": "Generate a comprehensive study summary of these documents."})
+        query_text = " ".join(request.document_names) + " core concepts, key terms, definitions, main arguments, important facts, comprehensive summary overview" if request.document_names else "core concepts, key terms, definitions, main arguments, important facts, comprehensive summary overview"
+        output = rag_chain.invoke({"input": query_text})
         raw_answer = output["answer"]
 
         # Parse the JSON response
@@ -385,7 +390,7 @@ def generate_quiz(request: QuizRequest):
     if retriever is None:
         raise HTTPException(status_code=400, detail="No documents indexed. Upload files first.")
 
-    llm = get_llm(request.model)
+    llm = get_llm(request.model, temperature=0.7)
 
     difficulty_label = "easy" if request.difficulty < 33 else "challenging" if request.difficulty < 66 else "very hard exam-level"
 
@@ -417,8 +422,21 @@ def generate_quiz(request: QuizRequest):
     rag_chain = create_retrieval_chain(retriever, qa_chain)
 
     try:
+        import random
+        random_aspects = [
+            "focus on definitions and terminology",
+            "focus on theoretical concepts and methodology",
+            "focus on case studies and real-world examples",
+            "focus on underlying principles and arguments",
+            "focus on the minor details and specific facts",
+            "focus on the big picture and overarching themes"
+        ]
+        focus = random.choice(random_aspects)
+        
+        query_text = " ".join(request.document_names) + f" core concepts, key terms, {focus}, comprehensive summary overview" if request.document_names else f"core concepts, key terms, {focus}, comprehensive summary overview"
+        
         output = rag_chain.invoke({
-            "input": f"Generate {request.question_count} quiz questions at {difficulty_label} difficulty."
+            "input": query_text
         })
         raw_answer = output["answer"]
 

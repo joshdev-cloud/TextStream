@@ -68,6 +68,7 @@ export function UploadMenu({ variant, onLocalUpload, isUploading }: UploadMenuPr
       <div className="relative" ref={menuRef}>
         {variant === "dashboard" && (
           <button
+            type="button"
             onClick={() => setIsOpen(!isOpen)}
             disabled={isUploading}
             className={`glass rounded-2xl px-4 py-2 border border-border/50 text-xs font-semibold cursor-pointer hover:bg-secondary/45 transition flex items-center gap-2 ${
@@ -90,6 +91,7 @@ export function UploadMenu({ variant, onLocalUpload, isUploading }: UploadMenuPr
         
         {variant === "workspace" && (
           <button
+            type="button"
             onClick={() => setIsOpen(!isOpen)}
             disabled={isUploading}
             title="Attach file"
@@ -103,6 +105,7 @@ export function UploadMenu({ variant, onLocalUpload, isUploading }: UploadMenuPr
 
         {variant === "vault" && (
           <button
+            type="button"
             onClick={() => setIsOpen(!isOpen)}
             disabled={isUploading}
             className={`px-4 py-2 bg-lavender hover:brightness-110 text-white font-bold text-xs rounded-xl flex items-center gap-2 transition glow-lavender cursor-pointer select-none ${
@@ -135,6 +138,7 @@ export function UploadMenu({ variant, onLocalUpload, isUploading }: UploadMenuPr
           >
             <div className="space-y-1">
               <button
+                type="button"
                 onClick={handleLocalClick}
                 className="flex items-center w-full gap-3 px-3 py-2 text-sm font-medium transition cursor-pointer rounded-xl hover:bg-secondary/60 text-muted-foreground hover:text-foreground"
               >
@@ -142,6 +146,7 @@ export function UploadMenu({ variant, onLocalUpload, isUploading }: UploadMenuPr
                 Local Folder
               </button>
               <button
+                type="button"
                 onClick={handleDriveClick}
                 className="flex items-center w-full gap-3 px-3 py-2 text-sm font-medium transition cursor-pointer rounded-xl hover:bg-secondary/60 text-muted-foreground hover:text-foreground"
               >

@@ -92,7 +92,7 @@ export function LoginPage() {
 
       {/* Login form — fades in after splash exits */}
       <div
-        className="min-h-screen flex items-center justify-center p-4"
+        className="min-h-screen flex items-center justify-center p-4 animate-fade-in"
         style={{
           opacity: loginVisible ? 1 : 0,
           transform: loginVisible ? "translateY(0)" : "translateY(16px)",

@@ -581,7 +581,7 @@ export function Workspace() {
   };
 
   return (
-    <div className="min-h-screen text-foreground">
+    <div className="min-h-screen text-foreground animate-fade-in">
       {/* Top bar */}
       <Navbar
         model={currentModel}

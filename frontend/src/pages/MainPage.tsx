@@ -235,7 +235,7 @@ export function MainPage() {
       {showSplash && <SplashScreen onComplete={handleSplashDone} />}
 
       <div
-        className="min-h-screen text-foreground bg-canvas"
+        className="min-h-screen text-foreground bg-canvas animate-fade-in"
         style={{
           opacity: dashVisible ? 1 : 0,
           transition: "opacity 0.5s ease-out",

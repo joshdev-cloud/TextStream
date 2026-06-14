@@ -1,10 +1,13 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "@tanstack/react-router";
+import { SplashScreen } from "@/components/ui/SplashScreen";
 
 type View = "main" | "textstream-signin" | "textstream-signup";
 
 export function LoginPage() {
+  const [showSplash, setShowSplash] = useState(true);
+  const [loginVisible, setLoginVisible] = useState(false);
   const [view, setView] = useState<View>("main");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -12,6 +15,12 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const router = useRouter();
+
+  const handleSplashDone = useCallback(() => {
+    setShowSplash(false);
+    // Tiny delay so the splash unmounts before login fades in
+    setTimeout(() => setLoginVisible(true), 50);
+  }, []);
 
   const handleGoogleLogin = async () => {
     setIsLoading(true);
@@ -71,8 +80,20 @@ export function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md">
+    <>
+      {/* Splash screen — renders on top and calls handleSplashDone when finished */}
+      {showSplash && <SplashScreen onComplete={handleSplashDone} />}
+
+      {/* Login form — fades in after splash exits */}
+      <div
+        className="min-h-screen flex items-center justify-center p-4"
+        style={{
+          opacity: loginVisible ? 1 : 0,
+          transform: loginVisible ? "translateY(0)" : "translateY(16px)",
+          transition: "opacity 0.5s ease-out, transform 0.5s ease-out",
+        }}
+      >
+        <div className="w-full max-w-md">
 
         {/* Logo / Branding */}
         <div className="text-center mb-8">
@@ -286,5 +307,6 @@ export function LoginPage() {
         </p>
       </div>
     </div>
+    </>
   );
 }

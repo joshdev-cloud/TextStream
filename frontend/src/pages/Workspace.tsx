@@ -193,6 +193,8 @@ export function Workspace() {
   const [difficulty, setDifficulty] = useState(50);
   const [chatInput, setChatInput] = useState("");
   const [showGoalPicker, setShowGoalPicker] = useState(false);
+  // Mobile tab switcher — "chat" or "reader" pane
+  const [mobileTab, setMobileTab] = useState<"chat" | "reader">("chat");
 
   const [viewportDocId, setViewportDocId] = useState<string | null>(null);
 
@@ -603,84 +605,96 @@ export function Workspace() {
           </div>
         ) : (
           <>
-            {/* Sleek Compact Focus Status Bar */}
-            <div className="glass rounded-2xl p-3 border border-border/40 flex flex-wrap items-center justify-between gap-3 text-xs mb-4">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5 font-semibold text-foreground">
-              <Clock className="size-4 text-mint animate-pulse" />
-              <span>Workspace Focus Timer:</span>
-              <span className="font-mono text-sm tracking-tight text-mint">{formatTime(elapsedSeconds)}</span>
+            {/* Compact Focus Status Bar — mobile-first */}
+            <div className="glass rounded-2xl p-2.5 sm:p-3 border border-border/40 text-xs mb-4">
+              {/* Row 1: Timer + controls */}
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Clock className="size-3.5 text-mint animate-pulse shrink-0" />
+                  <span className="font-mono text-sm tracking-tight text-mint font-bold">{formatTime(elapsedSeconds)}</span>
+                  <button
+                    type="button"
+                    onClick={() => { const n = !isPaused; setIsPaused(n); setIsManuallyPaused(n); }}
+                    className={`size-6 rounded-lg flex items-center justify-center transition ${
+                      isPaused ? "bg-mint text-white glow-mint" : "bg-secondary text-foreground hover:bg-secondary/70"
+                    }`}
+                  >
+                    {isPaused ? <Play className="size-2.5 fill-current" /> : <Pause className="size-2.5" />}
+                  </button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="hidden sm:flex items-center gap-1.5 bg-coral/10 text-coral border border-coral/20 px-2 py-0.5 rounded-xl font-bold text-[10px]">
+                    <Flame className="size-3 fill-current" />
+                    <span>{streakCount}d streak</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleEndSession}
+                    className="px-2.5 py-1 rounded-lg bg-coral/20 hover:bg-coral text-coral hover:text-white transition text-[10px] font-bold"
+                  >
+                    End
+                  </button>
+                </div>
+              </div>
+              {/* Row 2: Goal progress */}
+              <div className="flex items-center gap-2 mt-2">
+                <span className="text-muted-foreground shrink-0 text-[10px] flex items-center gap-1">
+                  Goal:{" "}
+                  {showGoalPicker ? (
+                    <select
+                      value={studyGoalHours}
+                      onChange={(e) => { setStudyGoalHours(parseInt(e.target.value, 10)); setShowGoalPicker(false); }}
+                      onBlur={() => setShowGoalPicker(false)}
+                      className="bg-canvas border border-border/80 outline-none rounded px-1 py-0.5 text-[10px] text-foreground font-bold focus:ring-1 focus:ring-amber-glow"
+                      autoFocus
+                    >
+                      {[1,2,3,4,5,6,7,8,9,10,12].map((h) => <option key={h} value={h}>{h}h</option>)}
+                    </select>
+                  ) : (
+                    <button onClick={() => setShowGoalPicker(true)} className="text-foreground font-bold hover:underline cursor-pointer bg-secondary/40 hover:bg-secondary/70 px-1.5 py-0.5 rounded transition text-[10px]">
+                      {studyGoalHours}h ✏️
+                    </button>
+                  )}
+                </span>
+                <div className="h-1.5 flex-1 rounded-full bg-muted/65 overflow-hidden border border-border/10">
+                  <div className="h-full bg-gradient-to-r from-mint to-lavender rounded-full transition-all duration-300" style={{ width: `${progressPercent}%` }} />
+                </div>
+                <span className="font-bold text-foreground shrink-0 text-[10px]">{progressPercent}%</span>
+              </div>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                const nextPaused = !isPaused;
-                setIsPaused(nextPaused);
-                setIsManuallyPaused(nextPaused);
-              }}
-              className={`size-6 rounded-lg flex items-center justify-center transition ${
-                isPaused ? "bg-mint text-white glow-mint" : "bg-secondary text-foreground hover:bg-secondary/70"
-              }`}
-            >
-              {isPaused ? <Play className="size-2.5 fill-current" /> : <Pause className="size-2.5" />}
-            </button>
-            <button
-              type="button"
-              onClick={handleEndSession}
-              className="px-2.5 py-1 rounded-lg bg-coral/20 hover:bg-coral text-coral hover:text-white transition text-[10px] font-bold shadow-sm"
-            >
-              End Session
-            </button>
-          </div>
 
-          <div className="flex items-center gap-3 flex-1 max-w-sm">
-            <span className="text-muted-foreground shrink-0 flex items-center gap-1 text-[10px]">
-              Goal:{" "}
-              {showGoalPicker ? (
-                <select
-                  value={studyGoalHours}
-                  onChange={(e) => {
-                    setStudyGoalHours(parseInt(e.target.value, 10));
-                    setShowGoalPicker(false);
-                  }}
-                  onBlur={() => setShowGoalPicker(false)}
-                  className="bg-canvas border border-border/80 outline-none rounded px-1 py-0.5 text-[10px] text-foreground font-bold focus:ring-1 focus:ring-amber-glow"
-                  autoFocus
-                >
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12].map((h) => (
-                    <option key={h} value={h}>
-                      {h}h
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <button
-                  onClick={() => setShowGoalPicker(true)}
-                  className="text-foreground font-bold hover:underline cursor-pointer bg-secondary/40 hover:bg-secondary/70 px-1.5 py-0.5 rounded transition text-[10px]"
-                  title="Click to edit study goal"
-                >
-                  {studyGoalHours}h ✏️
-                </button>
-              )}
-            </span>
-            <div className="h-1.5 flex-1 rounded-full bg-muted/65 overflow-hidden border border-border/10">
-              <div className="h-full bg-gradient-to-r from-mint to-lavender rounded-full transition-all duration-300" style={{ width: `${progressPercent}%` }} />
+            {/* Mobile tab switcher — visible only below lg breakpoint */}
+            <div className="flex lg:hidden rounded-2xl glass border border-border/40 p-1 gap-1 mb-4">
+              <button
+                onClick={() => setMobileTab("chat")}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition ${
+                  mobileTab === "chat"
+                    ? "bg-lavender/20 text-lavender"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <MessageCircle className="size-4" /> Chat
+              </button>
+              <button
+                onClick={() => setMobileTab("reader")}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition ${
+                  mobileTab === "reader"
+                    ? "bg-amber-glow/20 text-amber-glow"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <ScrollText className="size-4" /> Reader
+              </button>
             </div>
-            <span className="font-bold text-foreground shrink-0">{progressPercent}%</span>
-          </div>
 
-          <div className="flex items-center gap-1.5 bg-coral/10 text-coral border border-coral/20 px-2.5 py-1 rounded-xl font-bold text-[10px]">
-            <Flame className="size-3 fill-current" />
-            <span>Streak: {streakCount} {streakCount === 1 ? "Day" : "Days"}</span>
-          </div>
-        </div>
-
-        {/* Dual pane layout */}
+        {/* Dual pane layout — stacked on mobile, side-by-side on lg+ */}
         <div className={`grid grid-cols-1 gap-4 transition-all duration-300 ${
           readerDoc ? "lg:grid-cols-[46%_54%]" : "lg:grid-cols-[55%_45%]"
         }`}>
-          {/* LEFT: Chat / Summarizer */}
-          <section className="relative glass rounded-3xl p-5 min-h-[78vh] lg:h-[78vh] lg:max-h-[78vh] flex flex-col">
+          {/* LEFT: Chat / Summarizer — hidden on mobile when reader tab active */}
+          <section className={`relative glass rounded-3xl p-5 min-h-[70vh] lg:h-[78vh] lg:max-h-[78vh] flex flex-col ${
+            mobileTab === "reader" ? "hidden lg:flex" : "flex"
+          }`}>
             {workMode === "chat" ? (
               <>
                 <PanelHeader
@@ -741,64 +755,52 @@ export function Workspace() {
               />
             )}
 
-            {/* Floating input dock */}
+            {/* Floating input dock — mobile optimized */}
             <form onSubmit={handleSendMessage} className="mt-4 relative">
               {popup === "tools" && (
                 <ToolsMenuPopup
                   onClose={() => setPopup(null)}
                   onPick={(p) => {
-                    if (p === "chat") {
-                      setWorkMode("chat");
-                      setPopup(null);
-                    } else if (p === "summarize") {
-                      setWorkMode("summarize");
-                      setSummaryShown(false);
-                      setPopup(null);
-                    } else {
-                      setPopup("quiz");
-                    }
+                    if (p === "chat") { setWorkMode("chat"); setPopup(null); }
+                    else if (p === "summarize") { setWorkMode("summarize"); setSummaryShown(false); setPopup(null); }
+                    else { setPopup("quiz"); }
                   }}
                 />
               )}
-              <div className="glass-strong rounded-full px-2 py-2 flex items-center gap-2 shadow-glass">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setPopup(popup === "tools" ? null : "tools")
-                  }
-                  className={`flex items-center gap-2 px-4 py-2 rounded-full bg-amber-glow text-primary-foreground font-semibold text-sm glow-amber hover:brightness-110 transition shrink-0 ${
-                    popup === "tools" ? "ring-2 ring-amber-glow/60" : ""
-                  }`}
-                >
-                  <Wand2 className="size-4" />
-                  Study Tools
-                </button>
-
-                <input
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  className="flex-1 bg-transparent outline-none px-3 text-sm placeholder:text-muted-foreground text-foreground"
-                  placeholder={
-                    workMode === "summarize"
-                      ? "Summarizer active — pick docs on the right, then hit Run…"
-                      : `Chat with ${currentModel === "velocity" ? "Velocity Core" : "Deep Thinker"} about your selected PDFs…`
-                  }
-                  disabled={workMode === "summarize"}
-                />
-
-                <UploadMenu 
-                  variant="workspace"
-                  onLocalUpload={handleWorkspaceUpload}
-                  isUploading={isUploading || workMode === "summarize"}
-                />
-
-                <button
-                  type="submit"
-                  disabled={workMode === "summarize" || !chatInput.trim()}
-                  className="size-10 grid place-items-center rounded-full bg-lavender text-white glow-lavender hover:brightness-110 transition disabled:opacity-40 disabled:pointer-events-none"
-                >
-                  <Send className="size-4" />
-                </button>
+              {/* Main input row */}
+              <div className="glass-strong rounded-2xl sm:rounded-full px-2 py-2 flex flex-wrap sm:flex-nowrap items-center gap-2 shadow-glass">
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <button
+                    type="button"
+                    onClick={() => setPopup(popup === "tools" ? null : "tools")}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-full bg-amber-glow text-primary-foreground font-semibold text-xs sm:text-sm glow-amber hover:brightness-110 transition shrink-0 ${
+                      popup === "tools" ? "ring-2 ring-amber-glow/60" : ""
+                    }`}
+                  >
+                    <Wand2 className="size-3.5 sm:size-4" />
+                    <span className="hidden xs:inline">Study Tools</span>
+                    <span className="xs:hidden">Tools</span>
+                  </button>
+                  <input
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    className="flex-1 bg-transparent outline-none px-2 text-sm placeholder:text-muted-foreground text-foreground min-w-0"
+                    placeholder={workMode === "summarize" ? "Summarizer active…" : "Ask about your PDFs…"}
+                    disabled={workMode === "summarize"}
+                  />
+                  <UploadMenu
+                    variant="workspace"
+                    onLocalUpload={handleWorkspaceUpload}
+                    isUploading={isUploading || workMode === "summarize"}
+                  />
+                  <button
+                    type="submit"
+                    disabled={workMode === "summarize" || !chatInput.trim()}
+                    className="size-9 sm:size-10 grid place-items-center rounded-full bg-lavender text-white glow-lavender hover:brightness-110 transition disabled:opacity-40 disabled:pointer-events-none shrink-0"
+                  >
+                    <Send className="size-3.5 sm:size-4" />
+                  </button>
+                </div>
               </div>
             </form>
 
@@ -817,8 +819,10 @@ export function Workspace() {
             )}
           </section>
 
-          {/* RIGHT: Viewport & Session Vault */}
-          <section className="flex flex-col gap-4 lg:h-[78vh] lg:max-h-[78vh]">
+          {/* RIGHT: Viewport & Session Vault — hidden on mobile when chat tab active */}
+          <section className={`flex flex-col gap-4 lg:h-[78vh] lg:max-h-[78vh] ${
+            mobileTab === "chat" ? "hidden lg:flex" : "flex"
+          }`}>
             {/* Screen Reader Viewport (runs only when clicked on vault doc) */}
             <div className="glass rounded-3xl p-4 flex-1 flex flex-col">
               <PanelHeader

@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "@tanstack/react-router";
 import { SplashScreen } from "@/components/ui/SplashScreen";
+import { TextStreamLogo } from "@/components/ui/TextStreamLogo";
 
 type View = "main" | "textstream-signin" | "textstream-signup";
 
@@ -28,9 +29,12 @@ export function LoginPage() {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo: `${window.location.origin}/workspace` },
+        // After Google OAuth redirect, land on dashboard so splash fires
+        options: { redirectTo: `${window.location.origin}/` },
       });
       if (error) throw error;
+      // Flag will be read by MainPage after the OAuth redirect completes
+      sessionStorage.setItem("textstream_just_logged_in", "1");
     } catch (err: any) {
       setError(err.message || "Failed to sign in with Google.");
       setIsLoading(false);
@@ -46,7 +50,9 @@ export function LoginPage() {
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      router.navigate({ to: "/workspace" });
+      // Signal the dashboard to show the splash on first load
+      sessionStorage.setItem("textstream_just_logged_in", "1");
+      router.navigate({ to: "/" });
     } catch (err: any) {
       setError(err.message || "Invalid email or password.");
     } finally {
@@ -96,13 +102,11 @@ export function LoginPage() {
         <div className="w-full max-w-md">
 
         {/* Logo / Branding */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-primary mb-4">
-            <svg viewBox="0 0 24 24" className="w-6 h-6 text-primary-foreground fill-current">
-              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </div>
-          <h1 className="text-2xl font-bold text-foreground">TextStream</h1>
+        <div className="text-center mb-8 flex flex-col items-center">
+          <TextStreamLogo size="md" className="mb-4" />
+          <h1 className="text-2xl font-bold text-foreground">
+            Text<span style={{ color: "oklch(0.78 0.16 75)" }}>Stream</span>
+          </h1>
           <p className="text-sm text-muted-foreground mt-1">AI-powered study workspace</p>
         </div>
 

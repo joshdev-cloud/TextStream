@@ -10,7 +10,7 @@
  *   - Trash vault with soft-deleted sessions and restore/permanent delete actions
  */
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
   Sparkles,
@@ -40,6 +40,8 @@ import { UploadMenu } from "@/components/ui/UploadMenu";
 import { useDocumentManager } from "@/hooks/useDocumentManager";
 import type { StudySession, StudyMode } from "@/store/documentStore";
 import { uploadLocalDocument } from "@/lib/api/document.functions";
+import { TextStreamLogo } from "@/components/ui/TextStreamLogo";
+import { SplashScreen } from "@/components/ui/SplashScreen";
 
 /* ──────────────────────────── Constants ──────────────────────────── */
 
@@ -106,6 +108,23 @@ export function MainPage() {
     renameSession,
     quizzesTaken,
   } = useDocumentManager();
+
+  // Show splash on first dashboard load after login
+  const [showSplash, setShowSplash] = useState(() => {
+    if (typeof window !== "undefined") {
+      const flag = sessionStorage.getItem("textstream_just_logged_in");
+      if (flag) {
+        sessionStorage.removeItem("textstream_just_logged_in");
+        return true;
+      }
+    }
+    return false;
+  });
+  const [dashVisible, setDashVisible] = useState(!showSplash);
+  const handleSplashDone = useCallback(() => {
+    setShowSplash(false);
+    setTimeout(() => setDashVisible(true), 50);
+  }, []);
 
   const [showAiPopup, setShowAiPopup] = useState(false);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
@@ -195,7 +214,17 @@ export function MainPage() {
   };
 
   return (
-    <div className="min-h-screen text-foreground bg-canvas">
+    <>
+      {/* Splash — only shown right after login, reads a sessionStorage flag */}
+      {showSplash && <SplashScreen onComplete={handleSplashDone} />}
+
+      <div
+        className="min-h-screen text-foreground bg-canvas"
+        style={{
+          opacity: dashVisible ? 1 : 0,
+          transition: "opacity 0.5s ease-out",
+        }}
+      >
       <Navbar
         model={currentModel}
         onModelClick={() => setShowAiPopup(!showAiPopup)}
@@ -353,12 +382,10 @@ export function MainPage() {
                 <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
                   <div>
                     <div className="flex items-center gap-3 mb-3">
-                      <div className="size-12 rounded-2xl bg-gradient-to-br from-amber-glow to-coral grid place-items-center glow-amber">
-                        <Sparkles className="size-6 text-primary-foreground" />
-                      </div>
+                      <TextStreamLogo size="md" />
                       <div>
                         <h1 className="text-2xl font-bold tracking-tight">
-                          Welcome back to TextStream
+                          Welcome back to Text<span style={{ color: "oklch(0.78 0.16 75)" }}>Stream</span>
                         </h1>
                         <p className="text-sm text-muted-foreground">
                           Your AI-powered study companion
@@ -580,7 +607,8 @@ export function MainPage() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }
 

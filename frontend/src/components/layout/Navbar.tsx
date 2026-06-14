@@ -6,10 +6,11 @@
  */
 
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Moon, Sun, Sparkles, Home, BookOpen, Folder } from "lucide-react";
+import { Moon, Sun, Home, BookOpen, Folder } from "lucide-react";
 import { ModelBadge, type ModelKey } from "@/components/ui/ModelBadge";
 import { useDocumentManager } from "@/hooks/useDocumentManager";
 import { GlobalMenu } from "@/components/layout/GlobalMenu";
+import { TextStreamLogo } from "@/components/ui/TextStreamLogo";
 
 interface NavbarProps {
   model?: ModelKey;
@@ -29,16 +30,14 @@ export function Navbar({ model: propModel, onModelClick, subtitle: propSubtitle 
   const subtitle = propSubtitle !== undefined ? propSubtitle : (isWorkspace && activeSession ? activeSession.title : undefined);
 
   return (
-    <header className="flex items-center justify-between px-6 py-4 border-b border-border/40 backdrop-blur-md sticky top-0 z-30 bg-canvas/40">
+    <header className="flex items-center justify-between px-3 sm:px-6 py-3 sm:py-4 border-b border-border/40 backdrop-blur-md sticky top-0 z-30 bg-canvas/40">
       {/* Left: Branding */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2.5">
         <GlobalMenu />
-        <div className="size-9 rounded-2xl bg-gradient-to-br from-amber-glow to-coral grid place-items-center glow-amber">
-          <Sparkles className="size-4 text-primary-foreground" />
-        </div>
+        <TextStreamLogo size="sm" />
         <div>
           <h1 className="text-base font-bold tracking-tight">
-            TextStream{" "}
+            Text<span style={{ color: "oklch(0.78 0.16 75)" }}>Stream</span>{" "}
             <span className="text-muted-foreground font-medium hidden sm:inline-block">
               // Study Space
             </span>

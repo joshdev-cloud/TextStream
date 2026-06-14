@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { TextStreamLogo } from "@/components/ui/TextStreamLogo";
 
 type Phase = "enter" | "tagline" | "bar" | "hold" | "fade-out" | "done";
 
@@ -51,7 +52,7 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
         }}
       />
 
-      {/* Logo mark */}
+      {/* Logo mark — uses canonical TextStreamLogo */}
       <div
         style={{
           opacity: visible ? 1 : 0,
@@ -60,22 +61,7 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
           marginBottom: "20px",
         }}
       >
-        <div
-          className="relative flex items-center justify-center w-20 h-20 rounded-2xl"
-          style={{
-            background: "oklch(0.3 0.045 260 / 0.7)",
-            backdropFilter: "blur(20px) saturate(140%)",
-            border: "1px solid oklch(0.85 0.05 260 / 0.18)",
-            boxShadow:
-              "0 0 48px -8px oklch(0.78 0.16 75 / 0.55), 0 10px 40px -10px oklch(0 0 0 / 0.5), inset 0 1px 0 0 oklch(1 0 0 / 0.06)",
-          }}
-        >
-          <svg viewBox="0 0 32 32" className="w-10 h-10" fill="none">
-            <path d="M4 10l12-6 12 6-12 6L4 10z" fill="oklch(0.78 0.16 75)" opacity="0.95" />
-            <path d="M4 16l12 6 12-6" stroke="oklch(0.65 0.18 285)" strokeWidth="2.2" strokeLinecap="round" />
-            <path d="M4 22l12 6 12-6" stroke="oklch(0.72 0.16 165)" strokeWidth="2.2" strokeLinecap="round" />
-          </svg>
-        </div>
+        <TextStreamLogo size="lg" />
       </div>
 
       {/* Brand name */}

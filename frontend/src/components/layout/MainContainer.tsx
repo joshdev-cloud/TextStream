@@ -22,7 +22,7 @@ export function MainContainer({
 }: MainContainerProps) {
   return (
     <main
-      className={`p-4 ${
+      className={`px-3 py-3 sm:p-4 ${
         constrained ? "max-w-[1600px] mx-auto" : ""
       } ${className}`}
     >

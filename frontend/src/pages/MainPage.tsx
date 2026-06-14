@@ -42,6 +42,7 @@ import type { StudySession, StudyMode } from "@/store/documentStore";
 import { uploadLocalDocument } from "@/lib/api/document.functions";
 import { TextStreamLogo } from "@/components/ui/TextStreamLogo";
 import { SplashScreen } from "@/components/ui/SplashScreen";
+import { useAuth } from "@/hooks/useAuth";
 
 /* ──────────────────────────── Constants ──────────────────────────── */
 
@@ -108,6 +109,8 @@ export function MainPage() {
     renameSession,
     quizzesTaken,
   } = useDocumentManager();
+  
+  const { user } = useAuth();
 
   // Show splash on first dashboard load after login
   const [showSplash, setShowSplash] = useState(() => {
@@ -133,6 +136,19 @@ export function MainPage() {
   const [newSessionAccent, setNewSessionAccent] = useState<"amber" | "lavender" | "mint" | "coral">("amber");
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+
+  const firstName = (() => {
+    if (!user) return "";
+    let name = user.user_metadata?.full_name || user.user_metadata?.name;
+    if (!name && user.email) {
+      name = user.email.split("@")[0].split(".")[0];
+    }
+    if (!name) return "";
+    const first = name.split(" ")[0];
+    return first.charAt(0).toUpperCase() + first.slice(1);
+  })();
+  // If the account was created in the last 5 minutes, consider them a new user
+  const isNewUser = user ? (new Date().getTime() - new Date(user.created_at).getTime() < 5 * 60 * 1000) : false;
 
   // Reorganize Sessions: RECENT (worked on in last 5 hours) vs CONTINUE WORKING (older than 5 hours)
   const activeNonTrash = sessions.filter((s) => s.status !== "trash");
@@ -385,7 +401,8 @@ export function MainPage() {
                       <TextStreamLogo size="md" />
                       <div>
                         <h1 className="text-2xl font-bold tracking-tight">
-                          Welcome back to Text<span style={{ color: "oklch(0.78 0.16 75)" }}>Stream</span>
+                          {isNewUser ? "Welcome, " : "Welcome back, "}
+                          {firstName ? <span className="text-foreground">{firstName}!</span> : <span className="text-foreground">Student!</span>}
                         </h1>
                         <p className="text-sm text-muted-foreground">
                           Your AI-powered study companion

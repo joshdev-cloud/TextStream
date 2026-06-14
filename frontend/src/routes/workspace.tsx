@@ -8,8 +8,31 @@
  * This file is a thin TanStack Router wrapper.
  */
 
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect, useRouter } from "@tanstack/react-router";
 import { Workspace } from "@/pages/Workspace";
+import { useAuth } from "@/hooks/useAuth";
+import { useEffect } from "react";
+
+function WorkspaceWrapper() {
+  const { session, isLoading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isLoading && !session) {
+      router.navigate({ to: "/login" });
+    }
+  }, [session, isLoading, router]);
+
+  if (isLoading) {
+    return <div className="min-h-screen flex items-center justify-center bg-background"><div className="text-foreground">Loading...</div></div>;
+  }
+
+  if (!session) {
+    return null; // Will redirect via useEffect
+  }
+
+  return <Workspace />;
+}
 
 export const Route = createFileRoute("/workspace")({
   head: () => ({
@@ -28,5 +51,5 @@ export const Route = createFileRoute("/workspace")({
       },
     ],
   }),
-  component: Workspace,
+  component: WorkspaceWrapper,
 });

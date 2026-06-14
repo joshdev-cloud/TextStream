@@ -12,6 +12,7 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { DocumentProvider } from "@/store/documentStore";
 import { GlobalVaultModal } from "@/components/ui/GlobalVaultModal";
+import { AuthProvider } from "@/hooks/useAuth";
 
 function NotFoundComponent() {
   return (
@@ -123,11 +124,13 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <DocumentProvider>
-        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-        <Outlet />
-        <GlobalVaultModal />
-      </DocumentProvider>
+      <AuthProvider>
+        <DocumentProvider>
+          {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+          <Outlet />
+          <GlobalVaultModal />
+        </DocumentProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

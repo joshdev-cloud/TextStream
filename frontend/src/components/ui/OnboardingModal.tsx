@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 
 export function OnboardingModal() {
-  const { user, profile, refreshProfile } = useAuth();
+  const { user, profile, isLoading, refreshProfile } = useAuth();
   
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
@@ -15,9 +15,15 @@ export function OnboardingModal() {
   const [error, setError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
 
-  // The modal should only show if the user exists but hasn't set their age
-  // Also, don't show it if they are still loading the profile
-  const isProfileIncomplete = profile && (profile.age === null || profile.age === undefined);
+  // The modal should show if the user exists but hasn't set their name, age, or gender.
+  // It also catches users whose profile row was entirely deleted.
+  const isProfileIncomplete = !isLoading && user && (
+    !profile ||
+    !profile.name || 
+    profile.age === null || 
+    profile.age === undefined || 
+    !profile.gender
+  );
   
   useEffect(() => {
     setMounted(true);
@@ -25,8 +31,8 @@ export function OnboardingModal() {
 
   // Pre-fill name if Google provided it
   useEffect(() => {
-    if (profile && !name) {
-      setName(profile.name || user?.user_metadata?.full_name || "");
+    if (!name) {
+      setName(profile?.name || user?.user_metadata?.full_name || "");
     }
   }, [profile, user, name]);
 
@@ -40,14 +46,16 @@ export function OnboardingModal() {
     setError(null);
     
     try {
+      // Use UPSERT so that if the user completely deleted their row in the table editor, we recreate it!
       const { error: updateError } = await supabase
         .from('profiles')
-        .update({
+        .upsert({
+          id: user.id,
+          email: user.email,
           name: name.trim() || null,
           age: age ? parseInt(age, 10) : null,
           gender: gender || null,
-        })
-        .eq('id', user.id);
+        });
         
       if (updateError) throw updateError;
       

@@ -48,10 +48,23 @@ export function Navbar({ model: propModel, onModelClick, subtitle: propSubtitle 
       {/* Right: Navigation + Controls */}
       <div className="flex items-center gap-3">
         {/* Active Session Indicator (Upper Right, visible only inside workspace sessions) */}
-        {subtitle && (
-          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-glow/15 border border-amber-glow/30 text-amber-glow text-xs font-semibold glow-amber select-none animate-slide-down">
-            <span className="size-1.5 rounded-full bg-amber-glow animate-pulse" />
-            <span>Active Session: <strong>{subtitle}</strong></span>
+        {subtitle && isWorkspace && activeSession && (
+          <div className="hidden md:flex items-center gap-2 animate-slide-down">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-glow/15 border border-amber-glow/30 text-amber-glow text-xs font-semibold glow-amber select-none">
+              <span className="size-1.5 rounded-full bg-amber-glow animate-pulse" />
+              <span>Active Session: <strong>{subtitle}</strong></span>
+            </div>
+            <button
+              onClick={() => {
+                const { endSession, setActiveSessionId } = useDocumentManager.getState();
+                endSession(activeSession.id);
+                setActiveSessionId(null);
+                window.location.href = "/";
+              }}
+              className="px-3 py-1.5 rounded-full text-xs font-bold bg-coral/10 hover:bg-coral/25 border border-coral/30 text-coral transition cursor-pointer"
+            >
+              End Session
+            </button>
           </div>
         )}
 

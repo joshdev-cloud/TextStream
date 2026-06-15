@@ -780,7 +780,7 @@ export function Workspace() {
               )}
               {/* Main input row */}
               <div className="glass-strong rounded-2xl sm:rounded-full px-2 py-2 flex flex-wrap sm:flex-nowrap items-center gap-2 shadow-glass">
-                <div className="flex items-center gap-2 w-full sm:w-auto">
+                <div className="flex items-center gap-2 w-full">
                   <button
                     type="button"
                     onClick={() => setPopup(popup === "tools" ? null : "tools")}
@@ -795,7 +795,7 @@ export function Workspace() {
                   <input
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
-                    className="flex-1 bg-transparent outline-none px-2 text-sm placeholder:text-muted-foreground text-foreground min-w-0"
+                    className="flex-1 bg-transparent outline-none px-2 text-sm placeholder:text-muted-foreground text-foreground min-w-0 w-full"
                     placeholder={workMode === "summarize" ? "Summarizer active…" : "Ask about your PDFs…"}
                     disabled={workMode === "summarize"}
                   />

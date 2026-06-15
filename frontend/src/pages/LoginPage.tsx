@@ -61,8 +61,39 @@ export function LoginPage() {
     setError(null);
     setSuccessMsg(null);
     try {
-      const { error } = await supabase.auth.signUp({ email, password });
-      if (error) throw error;
+      // PROACTIVE SIGN-UP: Try to sign them in first
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      
+      if (!signInError && signInData.user) {
+        // They already have an account and entered the correct password!
+        const { data: profile } = await supabase.from('profiles').select('name').eq('id', signInData.user.id).single();
+        const name = profile?.name || signInData.user.user_metadata?.full_name || "there";
+        
+        setSuccessMsg(`Looks like you already have an account. Signing you in, ${name}...`);
+        sessionStorage.setItem("textstream_just_logged_in", "1");
+        
+        // Wait for the user to read the message, then redirect
+        setTimeout(() => {
+          router.navigate({ to: "/" });
+        }, 2500);
+        return;
+      }
+
+      // If sign-in failed, they are likely a new user. Try to create the account.
+      const { data: signUpData, error } = await supabase.auth.signUp({ email, password });
+      
+      if (error) {
+        // If they exist but entered the wrong password, Supabase returns this error on signUp (if enumeration protection is off)
+        if (error.message.toLowerCase().includes("already registered")) {
+          throw new Error("Looks like you already have an account! Please sign in with Google or enter your correct password.");
+        }
+        throw error;
+      }
+
+      // If enumeration protection is ON, Supabase returns a fake user with an empty identities array for existing emails
+      if (signUpData?.user && signUpData.user.identities && signUpData.user.identities.length === 0) {
+        throw new Error("Looks like you already have an account! Please sign in with Google or enter your correct password.");
+      }
 
       setSuccessMsg("Account created! Check your email to confirm your account before signing in.");
       setEmail("");

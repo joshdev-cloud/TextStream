@@ -43,6 +43,7 @@ import { uploadLocalDocument } from "@/lib/api/document.functions";
 import { TextStreamLogo } from "@/components/ui/TextStreamLogo";
 import { SplashScreen } from "@/components/ui/SplashScreen";
 import { useAuth } from "@/hooks/useAuth";
+import { OnboardingModal } from "@/components/ui/OnboardingModal";
 
 /* ──────────────────────────── Constants ──────────────────────────── */
 
@@ -236,6 +237,9 @@ export function MainPage() {
 
   return (
     <>
+      {/* Onboarding Modal - Mandatory setup for new users missing age/gender */}
+      <OnboardingModal />
+
       {/* Splash — only shown right after login, reads a sessionStorage flag */}
       {showSplash && <SplashScreen onComplete={handleSplashDone} />}
 

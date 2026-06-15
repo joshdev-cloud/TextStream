@@ -130,6 +130,7 @@ export function MainPage() {
   }, []);
 
   const [showAiPopup, setShowAiPopup] = useState(false);
+  const [showTrashPopup, setShowTrashPopup] = useState(false);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [newSessionTitle, setNewSessionTitle] = useState("");
   const [newSessionMode, setNewSessionMode] = useState<StudyMode>("RESEARCH MODE");
@@ -525,50 +526,72 @@ export function MainPage() {
               )}
             </section>
 
-            {/* ── Trash Vault Section ── */}
-            <section className="mb-12">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <span className="size-2.5 rounded-full bg-coral glow-coral animate-pulse" />
-                  <h2 className="text-sm font-semibold tracking-wide uppercase text-muted-foreground flex items-center gap-2">
-                    <Trash2 className="size-4" /> Recycle Bin
-                  </h2>
-                </div>
-                <div className="flex items-center gap-3">
-                  {trashSessions.length > 0 && (
-                    <button
-                      onClick={emptyTrash}
-                      className="px-3 py-1.5 bg-coral/10 hover:bg-coral/25 border border-coral/30 hover:border-coral/50 text-[10px] font-bold text-coral rounded-xl transition flex items-center gap-1.5 glow-coral"
-                    >
-                      <Trash2 className="size-3" /> Empty Trash
-                    </button>
-                  )}
-                  <span className="text-xs text-muted-foreground">
-                    {trashSessions.length} trashed (auto-purged in 7 days)
-                  </span>
-                </div>
-              </div>
-
-              {trashSessions.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {trashSessions.map((session) => (
-                    <TrashSessionCard
-                      key={session.id}
-                      session={session}
-                      onRestore={() => restoreSession(session.id)}
-                      onDelete={() => permanentlyDeleteSession(session.id)}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="glass rounded-3xl p-6 text-center text-xs text-muted-foreground border border-dashed border-border/50">
-                  Trash is empty. Deleted sessions reside here for 7 days before permanent deletion.
-                </div>
-              )}
-            </section>
           </>
         )}
       </MainContainer>
+
+      {/* Floating Trash Button */}
+      <button
+        onClick={() => setShowTrashPopup(true)}
+        title="Recycle Bin"
+        className="fixed bottom-6 right-6 size-14 rounded-full glass-strong grid place-items-center text-coral hover:bg-coral/10 border border-coral/30 shadow-lg z-40 transition-transform hover:scale-110"
+      >
+        <Trash2 className="size-6" />
+        {trashSessions.length > 0 && (
+          <span className="absolute -top-1 -right-1 size-5 bg-coral text-white text-[10px] font-bold rounded-full grid place-items-center shadow-sm animate-pulse">
+            {trashSessions.length}
+          </span>
+        )}
+      </button>
+
+      {/* Trash Popup Modal */}
+      {showTrashPopup && (
+        <div className="fixed inset-0 bg-canvas/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="glass-strong rounded-3xl p-6 max-w-5xl w-full max-h-[85vh] overflow-y-auto relative border border-coral/30 glow-coral shadow-2xl">
+            <button
+              onClick={() => setShowTrashPopup(false)}
+              className="absolute top-5 right-5 size-8 rounded-full glass grid place-items-center hover:bg-secondary text-muted-foreground hover:text-foreground transition"
+            >
+              <X className="size-4" />
+            </button>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
+              <div>
+                <h2 className="font-display font-extrabold text-2xl flex items-center gap-2 mb-1">
+                  <Trash2 className="size-6 text-coral" /> Recycle Bin
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  {trashSessions.length} trashed (auto-purged in 7 days)
+                </p>
+              </div>
+              {trashSessions.length > 0 && (
+                <button
+                  onClick={emptyTrash}
+                  className="px-4 py-2 bg-coral/10 hover:bg-coral/25 border border-coral/30 hover:border-coral/50 text-xs font-bold text-coral rounded-xl transition flex items-center gap-1.5 glow-coral shrink-0"
+                >
+                  <Trash2 className="size-4" /> Empty Trash
+                </button>
+              )}
+            </div>
+            
+            {trashSessions.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {trashSessions.map((session) => (
+                  <TrashSessionCard
+                    key={session.id}
+                    session={session}
+                    onRestore={() => restoreSession(session.id)}
+                    onDelete={() => permanentlyDeleteSession(session.id)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="glass rounded-3xl p-10 text-center text-sm text-muted-foreground border border-dashed border-border/50">
+                Trash is empty. Deleted sessions reside here for 7 days before permanent deletion.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* AI popup helper */}
       {showAiPopup && (

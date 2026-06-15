@@ -68,6 +68,7 @@ export function LoginPage() {
     try {
       const { error } = await supabase.auth.signUp({ email, password });
       if (error) throw error;
+
       setSuccessMsg("Account created! Check your email to confirm your account before signing in.");
       setEmail("");
       setPassword("");

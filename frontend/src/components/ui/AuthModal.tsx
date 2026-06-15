@@ -110,7 +110,22 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
           <button type="button" className="flex items-center justify-center gap-2 py-3 text-sm font-semibold transition border glass rounded-2xl border-border/40 hover:bg-secondary/60 cursor-pointer text-foreground">
             <Github className="size-4" /> GitHub
           </button>
-          <button type="button" className="flex items-center justify-center gap-2 py-3 text-sm font-semibold transition border glass rounded-2xl border-border/40 hover:bg-secondary/60 cursor-pointer text-foreground">
+          <button 
+            type="button" 
+            onClick={async () => {
+              try {
+                await import('@/lib/supabase').then(({ supabase }) => {
+                  supabase.auth.signInWithOAuth({
+                    provider: "google",
+                    options: { redirectTo: `${window.location.origin}/` },
+                  });
+                });
+              } catch (err) {
+                console.error(err);
+              }
+            }}
+            className="flex items-center justify-center gap-2 py-3 text-sm font-semibold transition border glass rounded-2xl border-border/40 hover:bg-secondary/60 cursor-pointer text-foreground"
+          >
             <Chrome className="size-4" /> Google
           </button>
         </div>

@@ -110,7 +110,7 @@ export function MainPage() {
     quizzesTaken,
   } = useDocumentManager();
   
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
 
   // Show splash on first dashboard load after login
   const [showSplash, setShowSplash] = useState(() => {
@@ -139,6 +139,10 @@ export function MainPage() {
   const [isUploading, setIsUploading] = useState(false);
 
   const firstName = (() => {
+    if (profile?.name) {
+      const first = profile.name.trim().split(" ")[0];
+      return first.charAt(0).toUpperCase() + first.slice(1);
+    }
     if (!user) return "";
     let name = user.user_metadata?.full_name || user.user_metadata?.name;
     if (!name && user.email) {
@@ -728,21 +732,18 @@ function InteractiveSessionCard({
       <Link
         to="/workspace"
         onClick={onSelect}
-        className={`glass rounded-3xl p-5 border transition-all duration-300 flex flex-col h-full hover:scale-[1.01] hover:brightness-105 group relative ${isActive
-          ? "border-mint/60 bg-mint/5 glow-mint shadow-mint ring-1 ring-mint/35"
-          : a.border
-          }`}
+        className={`glass rounded-3xl p-5 border transition-all duration-300 flex flex-col h-full hover:scale-[1.01] hover:brightness-105 group relative ${a.border}`}
       >
         {/* Header */}
         <div className="flex items-start justify-between mb-3">
-          <div className={`size-10 rounded-xl grid place-items-center ${isActive ? "bg-mint/20 text-mint" : a.iconBg + " " + a.text}`}>
+          <div className={`size-10 rounded-xl grid place-items-center ${a.iconBg} ${a.text}`}>
             {MODE_ICONS[session.mode] || <BookOpen className="size-5" />}
           </div>
 
           <div className="flex items-center gap-1.5">
             {isActive && (
-              <span className="bg-mint text-white text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full select-none animate-pulse">
-                Active Now
+              <span className="bg-primary/20 text-primary text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full select-none animate-pulse">
+                Resume Work
               </span>
             )}
             <div className="flex items-center gap-1 opacity-100 md:opacity-0 group-hover/card:opacity-100 transition duration-200">

@@ -14,6 +14,7 @@
  */
 
 import { useState, useEffect, useRef } from "react";
+import { Virtuoso } from "react-virtuoso";
 import {
   Zap,
   Compass,
@@ -701,16 +702,21 @@ export function Workspace() {
                   label="Active Learning Stream"
                   dot="lavender"
                   right={
-                    <span className="text-xs text-muted-foreground">
-                      {activeSession.messages?.length || 0} messages · synced
-                    </span>
+                    <div className="flex items-center gap-3">
+                      <span className="bg-mint text-white text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full select-none animate-pulse">
+                        Active Now
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {activeSession.messages?.length || 0} messages · synced
+                      </span>
+                    </div>
                   }
                 />
 
                 {/* Message list */}
                 <div
                   ref={chatContainerRef}
-                  className="flex-1 mt-4 space-y-4 overflow-y-auto pr-1 max-h-[60vh]"
+                  className="flex-1 min-h-0 mt-4 space-y-4 overflow-y-auto pr-1"
                 >
                   {activeSession.messages && activeSession.messages.length > 0 ? (
                     activeSession.messages.map((msg) => (
@@ -896,122 +902,129 @@ export function Workspace() {
 
                     {/* Scrollable Document Text Area */}
                     <div 
-                      className={`flex-1 overflow-y-auto pr-1 transition-all duration-200 ${
+                      className={`flex-1 overflow-hidden transition-all duration-200 ${
                         readerDoc ? "max-h-[460px]" : "max-h-[220px]"
                       } ${
                         isHighlightMode ? "select-none cursor-cell" : "select-text"
                       }`}
+                      style={{ fontSize: `${(zoomLevel / 100) * 0.75}rem` }}
                     >
-                      <h3 className="font-display font-bold text-sm text-slate-900 leading-snug">
-                        {readerDoc.name.endsWith(".pdf") ? readerDoc.name.slice(0, -4) : readerDoc.name}
-                      </h3>
-                      <p className="text-[10px] text-slate-500 font-medium tracking-wide uppercase mt-0.5 mb-2 border-b border-slate-200/60 pb-1 shrink-0">
-                        Index Viewport Reader · {readerDoc.pages} pages
-                      </p>
-
-                      <div 
-                        className="space-y-3 text-slate-800 leading-relaxed font-sans"
-                        style={{ fontSize: `${(zoomLevel / 100) * 0.75}rem` }}
-                      >
-                        {getPdfParagraphs(readerDoc).map((para, idx) => {
-                          // Split paragraph into words and whitespace, keeping spaces
+                      <Virtuoso
+                        data={getPdfParagraphs(readerDoc)}
+                        style={{ height: '100%' }}
+                        className="pr-1 text-slate-800 leading-relaxed font-sans"
+                        components={{
+                          Header: () => (
+                            <div className="mb-3">
+                              <h3 className="font-display font-bold text-sm text-slate-900 leading-snug">
+                                {readerDoc.name.endsWith(".pdf") ? readerDoc.name.slice(0, -4) : readerDoc.name}
+                              </h3>
+                              <p className="text-[10px] text-slate-500 font-medium tracking-wide uppercase mt-0.5 border-b border-slate-200/60 pb-1 shrink-0">
+                                Index Viewport Reader · {readerDoc.pages} pages
+                              </p>
+                            </div>
+                          )
+                        }}
+                        itemContent={(idx, para) => {
                           const parts = para.split(/(\s+)/);
                           return (
-                            <p key={idx} className="transition-all duration-200 px-1.5 py-1 rounded relative">
-                              {parts.map((part, partIdx) => {
-                                const isWhitespace = /^\s+$/.test(part);
-                                if (isWhitespace) {
-                                  // Check if word before and word after are highlighted to draw continuous background
-                                  const prevWordKey = `${idx}-${partIdx - 1}`;
-                                  const nextWordKey = `${idx}-${partIdx + 1}`;
-                                  const isPrevHighlighted = highlightedSegments[readerDoc.id]?.includes(prevWordKey);
-                                  const isNextHighlighted = highlightedSegments[readerDoc.id]?.includes(nextWordKey);
-                                  const isSpaceHighlighted = isPrevHighlighted && isNextHighlighted;
+                            <div className="pb-3">
+                              <p className="transition-all duration-200 px-1.5 py-1 rounded relative">
+                                {parts.map((part, partIdx) => {
+                                  const isWhitespace = /^\s+$/.test(part);
+                                  if (isWhitespace) {
+                                    // Check if word before and word after are highlighted to draw continuous background
+                                    const prevWordKey = `${idx}-${partIdx - 1}`;
+                                    const nextWordKey = `${idx}-${partIdx + 1}`;
+                                    const isPrevHighlighted = highlightedSegments[readerDoc.id]?.includes(prevWordKey);
+                                    const isNextHighlighted = highlightedSegments[readerDoc.id]?.includes(nextWordKey);
+                                    const isSpaceHighlighted = isPrevHighlighted && isNextHighlighted;
 
+                                    return (
+                                      <span 
+                                        key={partIdx}
+                                        onMouseDown={(e) => {
+                                          e.stopPropagation();
+                                          isMouseDownRef.current = true;
+                                          if (isSpaceHighlighted) {
+                                            e.preventDefault();
+                                            dragModeRef.current = "erase";
+                                            handleWordClick(readerDoc.id, prevWordKey, "remove");
+                                            handleWordClick(readerDoc.id, nextWordKey, "remove");
+                                          } else if (isHighlightMode) {
+                                            e.preventDefault();
+                                            dragModeRef.current = "highlight";
+                                            handleWordClick(readerDoc.id, prevWordKey, "add");
+                                            handleWordClick(readerDoc.id, nextWordKey, "add");
+                                          }
+                                        }}
+                                        className={isSpaceHighlighted ? "bg-yellow-300/90 text-slate-900 border-b border-yellow-500 font-medium py-1 select-none" : isHighlightMode ? "cursor-cell select-none" : ""}
+                                      >
+                                        {part}
+                                      </span>
+                                    );
+                                  }
+                                  
+                                  const wordKey = `${idx}-${partIdx}`;
+                                  const isWordHighlighted = highlightedSegments[readerDoc.id]?.includes(wordKey);
+
+                                  let highlightClass = "";
+                                  if (isWordHighlighted) {
+                                    const isPrevWordHighlighted = partIdx >= 2 && highlightedSegments[readerDoc.id]?.includes(`${idx}-${partIdx - 2}`);
+                                    const isNextWordHighlighted = partIdx <= parts.length - 3 && highlightedSegments[readerDoc.id]?.includes(`${idx}-${partIdx + 2}`);
+                                    
+                                    if (isPrevWordHighlighted && isNextWordHighlighted) {
+                                      highlightClass = "bg-yellow-300/90 text-slate-900 border-b border-yellow-500 font-medium rounded-none px-0";
+                                    } else if (isPrevWordHighlighted) {
+                                      highlightClass = "bg-yellow-300/90 text-slate-900 border-b border-yellow-500 font-medium rounded-r rounded-l-none pl-0 pr-1 shadow-sm";
+                                    } else if (isNextWordHighlighted) {
+                                      highlightClass = "bg-yellow-300/90 text-slate-900 border-b border-yellow-500 font-medium rounded-l rounded-r-none pl-1 pr-0 shadow-sm";
+                                    } else {
+                                      highlightClass = "bg-yellow-300/90 text-slate-900 border-b border-yellow-500 font-medium rounded px-1 shadow-sm";
+                                    }
+                                  } else if (isHighlightMode) {
+                                    highlightClass = "hover:bg-yellow-500/20 cursor-cell";
+                                  }
+                                  
                                   return (
-                                    <span 
+                                    <span
                                       key={partIdx}
+                                      data-word-key={wordKey}
                                       onMouseDown={(e) => {
                                         e.stopPropagation();
                                         isMouseDownRef.current = true;
-                                        if (isSpaceHighlighted) {
-                                          e.preventDefault();
+                                        if (isWordHighlighted) {
+                                          e.preventDefault(); // prevent browser default drag text selection
                                           dragModeRef.current = "erase";
-                                          handleWordClick(readerDoc.id, prevWordKey, "remove");
-                                          handleWordClick(readerDoc.id, nextWordKey, "remove");
+                                          handleWordClick(readerDoc.id, wordKey, "remove");
                                         } else if (isHighlightMode) {
-                                          e.preventDefault();
+                                          e.preventDefault(); // prevent browser default drag text selection
                                           dragModeRef.current = "highlight";
-                                          handleWordClick(readerDoc.id, prevWordKey, "add");
-                                          handleWordClick(readerDoc.id, nextWordKey, "add");
+                                          handleWordClick(readerDoc.id, wordKey, "add");
                                         }
                                       }}
-                                      className={isSpaceHighlighted ? "bg-yellow-300/90 text-slate-900 border-b border-yellow-500 font-medium py-1 select-none" : isHighlightMode ? "cursor-cell select-none" : ""}
+                                      onMouseEnter={() => {
+                                        if (isMouseDownRef.current) {
+                                          if (dragModeRef.current === "erase") {
+                                            handleWordClick(readerDoc.id, wordKey, "remove");
+                                          } else if (dragModeRef.current === "highlight" && isHighlightMode) {
+                                            handleWordClick(readerDoc.id, wordKey, "add");
+                                          }
+                                        }
+                                      }}
+                                      className={`transition-all duration-150 select-text ${
+                                        isHighlightMode ? "select-none" : "select-text"
+                                      } ${highlightClass}`}
                                     >
                                       {part}
                                     </span>
                                   );
-                                }
-                                
-                                const wordKey = `${idx}-${partIdx}`;
-                                const isWordHighlighted = highlightedSegments[readerDoc.id]?.includes(wordKey);
-
-                                let highlightClass = "";
-                                if (isWordHighlighted) {
-                                  const isPrevWordHighlighted = partIdx >= 2 && highlightedSegments[readerDoc.id]?.includes(`${idx}-${partIdx - 2}`);
-                                  const isNextWordHighlighted = partIdx <= parts.length - 3 && highlightedSegments[readerDoc.id]?.includes(`${idx}-${partIdx + 2}`);
-                                  
-                                  if (isPrevWordHighlighted && isNextWordHighlighted) {
-                                    highlightClass = "bg-yellow-300/90 text-slate-900 border-b border-yellow-500 font-medium rounded-none px-0";
-                                  } else if (isPrevWordHighlighted) {
-                                    highlightClass = "bg-yellow-300/90 text-slate-900 border-b border-yellow-500 font-medium rounded-r rounded-l-none pl-0 pr-1 shadow-sm";
-                                  } else if (isNextWordHighlighted) {
-                                    highlightClass = "bg-yellow-300/90 text-slate-900 border-b border-yellow-500 font-medium rounded-l rounded-r-none pl-1 pr-0 shadow-sm";
-                                  } else {
-                                    highlightClass = "bg-yellow-300/90 text-slate-900 border-b border-yellow-500 font-medium rounded px-1 shadow-sm";
-                                  }
-                                } else if (isHighlightMode) {
-                                  highlightClass = "hover:bg-yellow-500/20 cursor-cell";
-                                }
-                                
-                                return (
-                                  <span
-                                    key={partIdx}
-                                    data-word-key={wordKey}
-                                    onMouseDown={(e) => {
-                                      e.stopPropagation();
-                                      isMouseDownRef.current = true;
-                                      if (isWordHighlighted) {
-                                        e.preventDefault(); // prevent browser default drag text selection
-                                        dragModeRef.current = "erase";
-                                        handleWordClick(readerDoc.id, wordKey, "remove");
-                                      } else if (isHighlightMode) {
-                                        e.preventDefault(); // prevent browser default drag text selection
-                                        dragModeRef.current = "highlight";
-                                        handleWordClick(readerDoc.id, wordKey, "add");
-                                      }
-                                    }}
-                                    onMouseEnter={() => {
-                                      if (isMouseDownRef.current) {
-                                        if (dragModeRef.current === "erase") {
-                                          handleWordClick(readerDoc.id, wordKey, "remove");
-                                        } else if (dragModeRef.current === "highlight" && isHighlightMode) {
-                                          handleWordClick(readerDoc.id, wordKey, "add");
-                                        }
-                                      }
-                                    }}
-                                    className={`transition-all duration-150 select-text ${
-                                      isHighlightMode ? "select-none" : "select-text"
-                                    } ${highlightClass}`}
-                                  >
-                                    {part}
-                                  </span>
-                                );
-                              })}
-                            </p>
+                                })}
+                              </p>
+                            </div>
                           );
-                        })}
-                      </div>
+                        }}
+                      />
                     </div>
                   </div>
                 ) : (

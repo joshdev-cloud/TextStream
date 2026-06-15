@@ -1,13 +1,21 @@
 import { useState, useRef, useEffect } from "react";
-import { Menu, LogIn, Settings, HelpCircle, Info, Mail } from "lucide-react";
+import { Menu, LogIn, Settings, HelpCircle, Info, Mail, LogOut, User as UserIcon } from "lucide-react";
 import { AuthModal } from "@/components/ui/AuthModal";
 import { InfoModal, type InfoModalType } from "@/components/ui/InfoModal";
+import { EditProfileModal } from "@/components/ui/EditProfileModal";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/lib/supabase";
+import { useNavigate } from "@tanstack/react-router";
 
 export function GlobalMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showEditProfileModal, setShowEditProfileModal] = useState(false);
   const [infoModalType, setInfoModalType] = useState<InfoModalType>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
   // Close menu on click outside
   useEffect(() => {
@@ -45,13 +53,35 @@ export function GlobalMenu() {
         {isOpen && (
           <div className="absolute top-full left-0 mt-2 w-56 rounded-2xl p-2 glass-strong border border-border/40 shadow-xl animate-fade-in z-50">
             <div className="space-y-1">
-              <button
-                onClick={() => handleAction(() => setShowAuthModal(true))}
-                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition hover:bg-secondary/60 text-foreground cursor-pointer"
-              >
-                <LogIn className="size-4 text-amber-glow" />
-                Sign In
-              </button>
+              {!user ? (
+                <button
+                  onClick={() => handleAction(() => setShowAuthModal(true))}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition hover:bg-secondary/60 text-foreground cursor-pointer"
+                >
+                  <LogIn className="size-4 text-amber-glow" />
+                  Sign In
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={() => handleAction(() => setShowEditProfileModal(true))}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition hover:bg-secondary/60 text-foreground cursor-pointer"
+                  >
+                    <UserIcon className="size-4 text-amber-glow" />
+                    Edit Profile
+                  </button>
+                  <button
+                    onClick={() => handleAction(async () => {
+                      await supabase.auth.signOut();
+                      navigate({ to: '/login' });
+                    })}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition hover:bg-coral/10 text-coral hover:text-coral cursor-pointer"
+                  >
+                    <LogOut className="size-4" />
+                    Log Out
+                  </button>
+                </>
+              )}
               
               <div className="h-px bg-border/40 my-1 mx-2" />
 
@@ -92,6 +122,7 @@ export function GlobalMenu() {
       </div>
 
       <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
+      <EditProfileModal isOpen={showEditProfileModal} onClose={() => setShowEditProfileModal(false)} />
       <InfoModal type={infoModalType} onClose={() => setInfoModalType(null)} />
     </>
   );

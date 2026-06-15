@@ -859,24 +859,24 @@ export function Workspace() {
                 }
               />
 
-              <div className={`mt-3 rounded-2xl bg-gradient-to-b from-[#f8fafc] to-[#e8edf5] text-slate-800 p-4 relative flex flex-col overflow-hidden shadow-inner transition-all duration-300 ${
+              <div className={`mt-3 rounded-2xl bg-canvas border border-border text-foreground p-4 relative flex flex-col overflow-hidden shadow-inner transition-all duration-300 ${
                 readerDoc ? "h-[540px] max-h-[540px]" : "h-[300px] max-h-[300px]"
               }`}>
                 {readerDoc ? (
                   <div className="flex flex-col h-full animate-fade-in w-full">
                     {/* Viewport Toolbar */}
-                    <div className="flex items-center justify-between border-b border-slate-200/80 pb-2 mb-3 shrink-0">
-                      <div className="flex items-center gap-1 bg-slate-200/60 p-0.5 rounded-lg border border-slate-300/30">
+                    <div className="flex items-center justify-between border-b border-border/80 pb-2 mb-3 shrink-0">
+                      <div className="flex items-center gap-1 bg-secondary/60 p-0.5 rounded-lg border border-border/30">
                         <button
                           type="button"
                           onClick={zoomOut}
                           disabled={zoomLevel <= 70}
                           title="Zoom Out"
-                          className="size-7 rounded flex items-center justify-center hover:bg-slate-300/80 text-slate-700 transition disabled:opacity-40"
+                          className="size-7 rounded flex items-center justify-center hover:bg-secondary/80 text-foreground transition disabled:opacity-40"
                         >
                           <ZoomOut className="size-3.5" />
                         </button>
-                        <span className="text-xs font-mono font-bold text-slate-700 px-1.5 select-none min-w-[36px] text-center">
+                        <span className="text-xs font-mono font-bold text-foreground px-1.5 select-none min-w-[36px] text-center">
                           {zoomLevel}%
                         </span>
                         <button
@@ -884,7 +884,7 @@ export function Workspace() {
                           onClick={zoomIn}
                           disabled={zoomLevel >= 200}
                           title="Zoom In"
-                          className="size-7 rounded flex items-center justify-center hover:bg-slate-300/80 text-slate-700 transition disabled:opacity-40"
+                          className="size-7 rounded flex items-center justify-center hover:bg-secondary/80 text-foreground transition disabled:opacity-40"
                         >
                           <ZoomIn className="size-3.5" />
                         </button>
@@ -897,7 +897,7 @@ export function Workspace() {
                         className={`h-7 px-2.5 rounded-lg flex items-center gap-1.5 text-[10px] font-bold transition shadow-sm ${
                           isHighlightMode
                             ? "bg-amber-glow text-primary-foreground glow-amber hover:brightness-110"
-                            : "bg-slate-200 text-slate-700 hover:bg-slate-300 border border-slate-300/40"
+                            : "bg-secondary text-foreground hover:bg-secondary/70 border border-border/40"
                         }`}
                       >
                         <Highlighter className="size-3.5" />
@@ -917,14 +917,14 @@ export function Workspace() {
                       <Virtuoso
                         data={getPdfParagraphs(readerDoc)}
                         style={{ height: '100%' }}
-                        className="pr-1 text-slate-800 leading-relaxed font-sans"
+                        className="pr-1 text-foreground leading-relaxed font-sans"
                         components={{
                           Header: () => (
                             <div className="mb-3">
-                              <h3 className="font-display font-bold text-sm text-slate-900 leading-snug">
+                              <h3 className="font-display font-bold text-sm text-foreground leading-snug">
                                 {readerDoc.name.endsWith(".pdf") ? readerDoc.name.slice(0, -4) : readerDoc.name}
                               </h3>
-                              <p className="text-[10px] text-slate-500 font-medium tracking-wide uppercase mt-0.5 border-b border-slate-200/60 pb-1 shrink-0">
+                              <p className="text-[10px] text-muted-foreground font-medium tracking-wide uppercase mt-0.5 border-b border-border/60 pb-1 shrink-0">
                                 Index Viewport Reader · {readerDoc.pages} pages
                               </p>
                             </div>

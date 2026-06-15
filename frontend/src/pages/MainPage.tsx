@@ -152,8 +152,8 @@ export function MainPage() {
     const first = name.split(" ")[0];
     return first.charAt(0).toUpperCase() + first.slice(1);
   })();
-  // If the account was created in the last 5 minutes, consider them a new user
-  const isNewUser = user ? (new Date().getTime() - new Date(user.created_at).getTime() < 5 * 60 * 1000) : false;
+  // If the user has no sessions and no documents, or their account was created very recently, they are a new user
+  const isNewUser = (sessions.length === 0 && activeDocuments.length === 0) || (user ? (new Date().getTime() - new Date(user.created_at).getTime() < 5 * 60 * 1000) : false);
 
   // Reorganize Sessions: RECENT (worked on in last 5 hours) vs CONTINUE WORKING (older than 5 hours)
   const activeNonTrash = sessions.filter((s) => s.status !== "trash");

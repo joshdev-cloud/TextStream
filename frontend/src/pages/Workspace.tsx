@@ -15,6 +15,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Virtuoso } from "react-virtuoso";
+import { useAuth } from "@/hooks/useAuth";
 import {
   Zap,
   Compass,
@@ -159,6 +160,7 @@ const getPdfParagraphs = (doc: { id: string; name: string; paragraphs?: string[]
 
 export function Workspace() {
   const navigate = useNavigate();
+  const { user, profile } = useAuth();
   const {
     documents,
     activeDocuments,
@@ -399,7 +401,10 @@ export function Workspace() {
         body: JSON.stringify({
           question: userQuery,
           model: currentModel,
-          document_names: activeDocNames
+          document_names: activeDocNames,
+          user_name: profile?.name || user?.user_metadata?.full_name || undefined,
+          user_age: profile?.age || undefined,
+          user_gender: profile?.gender || undefined,
         }),
       });
 

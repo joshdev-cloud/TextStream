@@ -39,6 +39,9 @@ class ChatRequest(BaseModel):
     question: str
     model: str = "velocity"  # "velocity" (Groq) or "deep" (Gemini)
     document_names: List[str] = []  # empty = search all docs
+    user_name: Optional[str] = None
+    user_age: Optional[int] = None
+    user_gender: Optional[str] = None
 
 class SourceMetadata(BaseModel):
     source: str
@@ -265,6 +268,15 @@ def chat_with_documents(request: ChatRequest):
 
     llm = get_llm(request.model)
 
+    user_context = ""
+    if request.user_name or request.user_age or request.user_gender:
+        user_context = f"\n\nUSER PROFILE CONTEXT:\nYou are speaking with {request.user_name or 'a user'}."
+        if request.user_age:
+            user_context += f" They are {request.user_age} years old."
+        if request.user_gender and request.user_gender != "Prefer not to say":
+            user_context += f" Their gender is {request.user_gender}."
+        user_context += "\nCRITICAL INSTRUCTION: You must perfectly tailor your tone, reading level, and analogies to suit this user. For example, use age-appropriate analogies and vocabulary."
+
     prompt_blueprint = (
         "You are TextStream — a highly intelligent and articulate AI assistant with the eloquence and deep analytical mind of a distinguished English literature teacher. "
         "Your primary goal is to provide comprehensive, nuanced, and beautifully written answers based strictly on the provided documents.\n\n"
@@ -276,7 +288,8 @@ def chat_with_documents(request: ChatRequest):
         "- Be highly comprehensive and thorough. Dive deep into the specific details, themes, arguments, and evidence presented in the text.\n"
         "- Synthesize information across different parts of the context to provide a cohesive and well-structured answer.\n"
         "- ALWAYS ground your answers in the provided text. Refer to specific details and concepts found in the context.\n"
-        "- If the answer cannot be found in the context, explicitly and gracefully state that it is not covered in the documents, and only then offer general knowledge.\n\n"
+        "- If the answer cannot be found in the context, explicitly and gracefully state that it is not covered in the documents, and only then offer general knowledge."
+        f"{user_context}\n\n"
         "Context from the user's documents:\n{context}"
     )
     prompt = ChatPromptTemplate.from_messages([

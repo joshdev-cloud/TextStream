@@ -19,6 +19,7 @@ import {
   type Dispatch,
 } from "react";
 import type { ModelKey } from "@/components/ui/ModelBadge";
+import { useAuth } from "@/hooks/useAuth";
 
 /* ──────────────────────────── Types ──────────────────────────── */
 
@@ -332,6 +333,9 @@ const DocumentContext = createContext<DocumentContextValue | null>(null);
 /* ──────────────────────────── Provider ──────────────────────────── */
 
 export function DocumentProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+  const userId = user?.id || "guest";
+
   const [state, dispatch] = useReducer(documentReducer, {
     documents: [], // Starts clean (no pseudo PDFs)
     sessions: [], // Starts clean (no mock sessions)
@@ -359,76 +363,66 @@ export function DocumentProvider({ children }: { children: ReactNode }) {
   // Load state from localStorage on mount (client-only)
   useEffect(() => {
     if (typeof window !== "undefined") {
-      // Auto-purge old mock sessions once
-      const hasPurged = localStorage.getItem("textstream_purged_mocks_v2");
-      if (!hasPurged) {
-        localStorage.removeItem("textstream_sessions");
-        localStorage.setItem("textstream_purged_mocks_v2", "true");
-      }
+      const storedDocs = localStorage.getItem(`textstream_${userId}_documents`);
+      const storedSessions = localStorage.getItem(`textstream_${userId}_sessions`);
+      const storedGoal = localStorage.getItem(`textstream_${userId}_study_goal`);
+      const storedQuizzes = localStorage.getItem(`textstream_${userId}_quizzes_taken`);
+      const storedActiveSession = localStorage.getItem(`textstream_${userId}_active_session`);
 
-      const storedDocs = localStorage.getItem("textstream_documents");
-      const storedSessions = localStorage.getItem("textstream_sessions");
-      const storedGoal = localStorage.getItem("textstream_study_goal");
-      const storedQuizzes = localStorage.getItem("textstream_quizzes_taken");
-      const storedActiveSession = localStorage.getItem("textstream_active_session");
-
-      if (storedDocs || storedSessions || storedGoal || storedQuizzes || storedActiveSession) {
-        dispatch({
-          type: "REHYDRATE_STATE",
-          payload: {
-            documents: storedDocs ? JSON.parse(storedDocs) : [],
-            sessions: storedSessions ? JSON.parse(storedSessions) : [],
-            studyGoalHours: storedGoal ? parseInt(storedGoal, 10) : 2,
-            quizzesTaken: storedQuizzes ? parseInt(storedQuizzes, 10) : 0,
-          } as any,
-        });
-        
-        if (storedActiveSession) {
-          dispatch({ type: "SET_ACTIVE_SESSION", payload: storedActiveSession });
-        }
-      }
+      // Always dispatch REHYDRATE to ensure state resets when user changes
+      dispatch({
+        type: "REHYDRATE_STATE",
+        payload: {
+          documents: storedDocs ? JSON.parse(storedDocs) : [],
+          sessions: storedSessions ? JSON.parse(storedSessions) : [],
+          studyGoalHours: storedGoal ? parseInt(storedGoal, 10) : 2,
+          quizzesTaken: storedQuizzes ? parseInt(storedQuizzes, 10) : 0,
+        } as any,
+      });
+      
+      dispatch({ type: "SET_ACTIVE_SESSION", payload: storedActiveSession || null });
     }
-  }, []);
+  }, [userId]);
 
   // Save state to localStorage on changes
   useEffect(() => {
     if (typeof window !== "undefined") {
-      localStorage.setItem("textstream_documents", JSON.stringify(state.documents));
-      localStorage.setItem("textstream_sessions", JSON.stringify(state.sessions));
-      localStorage.setItem("textstream_study_goal", state.studyGoalHours.toString());
-      localStorage.setItem("textstream_quizzes_taken", state.quizzesTaken.toString());
+      localStorage.setItem(`textstream_${userId}_documents`, JSON.stringify(state.documents));
+      localStorage.setItem(`textstream_${userId}_sessions`, JSON.stringify(state.sessions));
+      localStorage.setItem(`textstream_${userId}_study_goal`, state.studyGoalHours.toString());
+      localStorage.setItem(`textstream_${userId}_quizzes_taken`, state.quizzesTaken.toString());
       if (state.activeSessionId) {
-        localStorage.setItem("textstream_active_session", state.activeSessionId);
+        localStorage.setItem(`textstream_${userId}_active_session`, state.activeSessionId);
       } else {
-        localStorage.removeItem("textstream_active_session");
+        localStorage.removeItem(`textstream_${userId}_active_session`);
       }
     }
-  }, [state.documents, state.sessions, state.studyGoalHours, state.quizzesTaken, state.activeSessionId]);
+  }, [state.documents, state.sessions, state.studyGoalHours, state.quizzesTaken, state.activeSessionId, userId]);
 
   // Sync state across multiple tabs (global store sync)
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === "textstream_sessions" && e.newValue) {
+      if (e.key === `textstream_${userId}_sessions` && e.newValue) {
         dispatch({ type: "SET_SESSIONS", payload: JSON.parse(e.newValue) });
-      } else if (e.key === "textstream_documents" && e.newValue) {
+      } else if (e.key === `textstream_${userId}_documents` && e.newValue) {
         dispatch({ type: "SET_DOCUMENTS", payload: JSON.parse(e.newValue) });
-      } else if (e.key === "textstream_active_session") {
+      } else if (e.key === `textstream_${userId}_active_session`) {
         dispatch({ type: "SET_ACTIVE_SESSION", payload: e.newValue });
       }
     };
 
     window.addEventListener("storage", handleStorageChange);
     return () => window.removeEventListener("storage", handleStorageChange);
-  }, []);
+  }, [userId]);
 
   // Day Streak logic on mount
   useEffect(() => {
     if (typeof window !== "undefined") {
       const todayStr = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD
-      const lastVisit = localStorage.getItem("textstream_last_visit");
-      const storedStreak = localStorage.getItem("textstream_streak_count");
+      const lastVisit = localStorage.getItem(`textstream_${userId}_last_visit`);
+      const storedStreak = localStorage.getItem(`textstream_${userId}_streak_count`);
       
       let newStreak = 1;
       if (lastVisit && storedStreak) {
@@ -449,21 +443,21 @@ export function DocumentProvider({ children }: { children: ReactNode }) {
         } else if (diffDays === 1) {
           // Consecutive day visit
           newStreak = currentStreak + 1;
-          localStorage.setItem("textstream_last_visit", todayStr);
+          localStorage.setItem(`textstream_${userId}_last_visit`, todayStr);
         } else {
           // Streak broken
           newStreak = 1;
-          localStorage.setItem("textstream_last_visit", todayStr);
+          localStorage.setItem(`textstream_${userId}_last_visit`, todayStr);
         }
       } else {
-        localStorage.setItem("textstream_last_visit", todayStr);
-        localStorage.setItem("textstream_streak_count", "1");
+        localStorage.setItem(`textstream_${userId}_last_visit`, todayStr);
+        localStorage.setItem(`textstream_${userId}_streak_count`, "1");
       }
       
-      localStorage.setItem("textstream_streak_count", newStreak.toString());
+      localStorage.setItem(`textstream_${userId}_streak_count`, newStreak.toString());
       dispatch({ type: "SET_STREAK", payload: newStreak });
     }
-  }, []);
+  }, [userId]);
 
   // Auto-scan folder on mount to discover any dropped PDFs
   useEffect(() => {

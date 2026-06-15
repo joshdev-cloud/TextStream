@@ -143,10 +143,10 @@ export function EditProfileModal({ isOpen, onClose }: EditProfileModalProps) {
                 onChange={(e) => setGender(e.target.value)}
                 className="w-full py-3 pl-10 pr-4 text-sm transition border outline-none appearance-none bg-secondary/35 border-border/50 rounded-2xl text-foreground focus:ring-1 focus:ring-amber-glow/60 focus:border-amber-glow"
               >
-                <option value="">Prefer not to say</option>
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-                <option value="Other">Other</option>
+                <option value="" className="bg-[#1c1c28] text-white">Prefer not to say</option>
+                <option value="Male" className="bg-[#1c1c28] text-white">Male</option>
+                <option value="Female" className="bg-[#1c1c28] text-white">Female</option>
+                <option value="Other" className="bg-[#1c1c28] text-white">Other</option>
               </select>
             </div>
           </div>

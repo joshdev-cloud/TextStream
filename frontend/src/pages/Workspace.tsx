@@ -60,6 +60,7 @@ import { EngineCard } from "@/components/ui/EngineCard";
 import { ModuleLabel } from "@/components/ui/ModuleLabel";
 import { type ModelKey } from "@/components/ui/ModelBadge";
 import { UploadMenu } from "@/components/ui/UploadMenu";
+import { Folder } from "@/components/ui/Folder";
 import { useDocumentManager } from "@/hooks/useDocumentManager";
 
 /* ──────────────────────────── Types ──────────────────────────── */
@@ -200,6 +201,7 @@ export function Workspace() {
   const [mobileTab, setMobileTab] = useState<"chat" | "reader">("chat");
 
   const [viewportDocId, setViewportDocId] = useState<string | null>(null);
+  const [isGlobalVaultOpen, setIsGlobalVaultOpen] = useState(false);
 
   // Viewport zoom, scrolling, and highlight states
   const [zoomLevel, setZoomLevel] = useState(100);
@@ -859,11 +861,11 @@ export function Workspace() {
                 }
               />
 
-              <div className={`mt-3 rounded-2xl bg-canvas border border-border text-foreground p-4 relative flex flex-col overflow-hidden shadow-inner transition-all duration-300 ${
+              <div className={`mt-3 rounded-2xl bg-canvas border border-border text-foreground p-4 relative flex flex-col overflow-hidden shadow-inner transition-[height,max-height] duration-500 ease-in-out ${
                 readerDoc ? "h-[540px] max-h-[540px]" : "h-[300px] max-h-[300px]"
               }`}>
                 {readerDoc ? (
-                  <div className="flex flex-col h-full animate-fade-in w-full">
+                  <div className="flex flex-col h-full animate-fade-in duration-500 w-full">
                     {/* Viewport Toolbar */}
                     <div className="flex items-center justify-between border-b border-border/80 pb-2 mb-3 shrink-0">
                       <div className="flex items-center gap-1 bg-secondary/60 p-0.5 rounded-lg border border-border/30">
@@ -1033,7 +1035,7 @@ export function Workspace() {
                     </div>
                   </div>
                 ) : (
-                  <div className="h-full flex flex-col items-center justify-center text-center p-4">
+                  <div className="h-full flex flex-col items-center justify-center text-center p-4 animate-fade-in duration-500 absolute inset-0">
                     <FileText className="size-10 text-slate-400/80 mb-2 animate-pulse" />
                     <p className="font-semibold text-sm text-slate-700">Viewport Standby</p>
                     <p className="text-xs text-slate-500 max-w-xs mt-1.5 leading-relaxed">
@@ -1086,24 +1088,51 @@ export function Workspace() {
 
 
 
-              {/* Add from Global Vault */}
+              {/* Add from Global Vault via 3D Folder Button */}
               {globalDocumentsNotInSession.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-border/30">
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold mb-1.5">
-                    📦 Add from Global Vault to Session
-                  </p>
-                  <div className="space-y-1 max-h-[110px] overflow-y-auto pr-1">
-                    {globalDocumentsNotInSession.map((doc) => (
-                      <div key={doc.id} className="flex items-center justify-between bg-muted/20 border border-border/40 rounded-xl px-3 py-1.5 text-xs">
-                        <span className="font-semibold text-foreground truncate max-w-[160px]">{doc.name}</span>
-                        <button
-                          onClick={() => addDocumentToSession(activeSession.id, doc.id)}
-                          className="px-2 py-0.5 rounded-lg bg-amber-glow/20 text-amber-glow hover:bg-amber-glow hover:text-primary-foreground font-bold transition text-[10px]"
-                        >
-                          + Add
-                        </button>
+                <div className="mt-4 pt-4 border-t border-border/30 flex flex-col items-center">
+                  <button 
+                    onClick={() => setIsGlobalVaultOpen(!isGlobalVaultOpen)}
+                    className="flex flex-col items-center justify-center group focus:outline-none"
+                  >
+                    <Folder 
+                      size={0.65} 
+                      isOpen={isGlobalVaultOpen}
+                      items={[
+                        <FileText key="1" className="size-5 text-slate-500" />,
+                        <FileText key="2" className="size-5 text-slate-500" />,
+                        <FileText key="3" className="size-5 text-slate-500" />
+                      ]}
+                      className="mb-2"
+                    />
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold group-hover:text-foreground transition">
+                      {isGlobalVaultOpen ? "Close Global Vault" : "Open Global Vault"}
+                    </p>
+                  </button>
+
+                  <div 
+                    className={`w-full grid transition-all duration-500 ease-in-out ${
+                      isGlobalVaultOpen ? "grid-rows-[1fr] opacity-100 mt-4" : "grid-rows-[0fr] opacity-0 mt-0 pointer-events-none"
+                    }`}
+                  >
+                    <div className="overflow-hidden">
+                      <div className="w-full space-y-1.5 max-h-[160px] overflow-y-auto pr-1">
+                        {globalDocumentsNotInSession.map((doc) => (
+                          <div key={doc.id} className="flex items-center justify-between bg-muted/20 border border-border/40 rounded-xl px-3 py-2 text-xs group/item hover:bg-muted/30 transition">
+                            <div className="flex items-center gap-2">
+                              <FileText className="size-3.5 text-muted-foreground" />
+                              <span className="font-semibold text-foreground truncate max-w-[150px]">{doc.name}</span>
+                            </div>
+                            <button
+                              onClick={() => addDocumentToSession(activeSession.id, doc.id)}
+                              className="px-2.5 py-1 rounded-lg bg-amber-glow/10 text-amber-glow border border-amber-glow/20 hover:bg-amber-glow hover:text-primary-foreground font-bold transition text-[10px] shadow-sm"
+                            >
+                              + Add to Session
+                            </button>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    </div>
                   </div>
                 </div>
               )}

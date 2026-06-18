@@ -421,16 +421,26 @@ export function DocumentProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (typeof window !== "undefined") {
       const todayStr = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD
-      const lastVisit = localStorage.getItem(`textstream_${userId}_last_visit`);
-      const storedStreak = localStorage.getItem(`textstream_${userId}_streak_count`);
+      let lastVisit = localStorage.getItem(`textstream_${userId}_last_visit`);
+      let storedStreak = localStorage.getItem(`textstream_${userId}_streak_count`);
+
+      // Transfer guest streak if new user account has no streak
+      if (userId !== "guest" && !lastVisit && !storedStreak) {
+        const guestLastVisit = localStorage.getItem(`textstream_guest_last_visit`);
+        const guestStreak = localStorage.getItem(`textstream_guest_streak_count`);
+        if (guestLastVisit && guestStreak) {
+          lastVisit = guestLastVisit;
+          storedStreak = guestStreak;
+        }
+      }
       
       let newStreak = 1;
       if (lastVisit && storedStreak) {
-        const lastDate = new Date(lastVisit);
-        const todayDate = new Date(todayStr);
-        // Reset times to midnight to calculate day difference accurately
-        lastDate.setHours(0, 0, 0, 0);
-        todayDate.setHours(0, 0, 0, 0);
+        const [lastYear, lastMonth, lastDay] = lastVisit.split('-').map(Number);
+        const lastDate = new Date(lastYear, lastMonth - 1, lastDay);
+        
+        const [todayYear, todayMonth, todayDay] = todayStr.split('-').map(Number);
+        const todayDate = new Date(todayYear, todayMonth - 1, todayDay);
         
         const diffTime = todayDate.getTime() - lastDate.getTime();
         const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));

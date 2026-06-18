@@ -44,6 +44,7 @@ import { TextStreamLogo } from "@/components/ui/TextStreamLogo";
 import { SplashScreen } from "@/components/ui/SplashScreen";
 import { useAuth } from "@/hooks/useAuth";
 import { OnboardingModal } from "@/components/ui/OnboardingModal";
+import { StarBorder } from "@/components/ui/StarBorder";
 
 /* ──────────────────────────── Constants ──────────────────────────── */
 
@@ -261,37 +262,39 @@ export function MainPage() {
 
         {/* ── Active Session Banner ── */}
         {activeSession && (
-          <div className="glass rounded-3xl p-5 border border-mint/40 bg-mint/5 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 animate-slide-down glow-mint">
-            <div className="flex items-center gap-3">
-              <span className="relative flex h-3.5 w-3.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-mint opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-mint"></span>
-              </span>
-              <div>
-                <p className="text-[10px] font-bold text-mint uppercase tracking-widest">Active Study Space</p>
-                <h3 className="font-display font-extrabold text-sm text-foreground mt-0.5">
-                  {activeSession.title} <span className="text-xs text-muted-foreground font-normal">({activeSession.mode})</span>
-                </h3>
+          <StarBorder as="div" className="mb-6 animate-slide-down w-full" color="rgba(74, 222, 128, 0.8)" speed="4s">
+            <div className="glass rounded-[23px] p-5 bg-mint/5 flex flex-col sm:flex-row items-center justify-between gap-4 h-full w-full">
+              <div className="flex items-center gap-3">
+                <span className="relative flex h-3.5 w-3.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-mint opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-mint"></span>
+                </span>
+                <div>
+                  <p className="text-[10px] font-bold text-mint uppercase tracking-widest">Active Study Space</p>
+                  <h3 className="font-display font-extrabold text-sm text-foreground mt-0.5">
+                    {activeSession.title} <span className="text-xs text-muted-foreground font-normal">({activeSession.mode})</span>
+                  </h3>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 w-full sm:w-auto shrink-0 justify-end">
+                <button
+                  onClick={() => {
+                    endSession(activeSession.id);
+                    setActiveSessionId(null);
+                  }}
+                  className="rounded-2xl px-5 py-2.5 text-xs font-bold bg-coral/10 hover:bg-coral/25 border border-coral/30 text-coral transition flex items-center gap-1.5 shrink-0"
+                >
+                  <X className="size-3.5" /> End Session
+                </button>
+                <Link
+                  to="/workspace"
+                  className="rounded-2xl px-5 py-2.5 text-xs font-bold bg-mint text-white glow-mint hover:brightness-110 hover:scale-[1.02] transition flex items-center gap-1.5 shrink-0"
+                >
+                  Enter Active Workspace <ArrowRight className="size-3.5" />
+                </Link>
               </div>
             </div>
-            <div className="flex items-center gap-3 w-full sm:w-auto shrink-0 justify-end">
-              <button
-                onClick={() => {
-                  endSession(activeSession.id);
-                  setActiveSessionId(null);
-                }}
-                className="rounded-2xl px-5 py-2.5 text-xs font-bold bg-coral/10 hover:bg-coral/25 border border-coral/30 text-coral transition flex items-center gap-1.5 shrink-0"
-              >
-                <X className="size-3.5" /> End Session
-              </button>
-              <Link
-                to="/workspace"
-                className="rounded-2xl px-5 py-2.5 text-xs font-bold bg-mint text-white glow-mint hover:brightness-110 hover:scale-[1.02] transition flex items-center gap-1.5 shrink-0"
-              >
-                Enter Active Workspace <ArrowRight className="size-3.5" />
-              </Link>
-            </div>
-          </div>
+          </StarBorder>
         )}
 
         {/* ── File Upload Alert ── */}

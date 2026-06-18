@@ -17,6 +17,8 @@ from langchain_classic.chains import create_retrieval_chain
 from langchain_classic.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate
 
+from fastapi.staticfiles import StaticFiles
+
 app = FastAPI(title="TextStream API Backend", version="2.0")
 
 # Enable Cross-Origin Resource Sharing (CORS) so your frontend environments can talk to it
@@ -27,6 +29,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+if not os.path.exists(Config.DOCS_DIR):
+    os.makedirs(Config.DOCS_DIR)
+
+app.mount("/documents", StaticFiles(directory=Config.DOCS_DIR), name="documents")
 
 # ──────────────────────────── Shared State ────────────────────────────
 

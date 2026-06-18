@@ -865,174 +865,12 @@ export function Workspace() {
                 readerDoc ? "h-[540px] max-h-[540px]" : "h-[300px] max-h-[300px]"
               }`}>
                 {readerDoc ? (
-                  <div className="flex flex-col h-full animate-fade-in duration-500 w-full">
-                    {/* Viewport Toolbar */}
-                    <div className="flex items-center justify-between border-b border-border/80 pb-2 mb-3 shrink-0">
-                      <div className="flex items-center gap-1 bg-secondary/60 p-0.5 rounded-lg border border-border/30">
-                        <button
-                          type="button"
-                          onClick={zoomOut}
-                          disabled={zoomLevel <= 70}
-                          title="Zoom Out"
-                          className="size-7 rounded flex items-center justify-center hover:bg-secondary/80 text-foreground transition disabled:opacity-40"
-                        >
-                          <ZoomOut className="size-3.5" />
-                        </button>
-                        <span className="text-xs font-mono font-bold text-foreground px-1.5 select-none min-w-[36px] text-center">
-                          {zoomLevel}%
-                        </span>
-                        <button
-                          type="button"
-                          onClick={zoomIn}
-                          disabled={zoomLevel >= 200}
-                          title="Zoom In"
-                          className="size-7 rounded flex items-center justify-center hover:bg-secondary/80 text-foreground transition disabled:opacity-40"
-                        >
-                          <ZoomIn className="size-3.5" />
-                        </button>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={toggleHighlightMode}
-                        title={isHighlightMode ? "Disable Highlighter Pen" : "Enable Highlighter Pen"}
-                        className={`h-7 px-2.5 rounded-lg flex items-center gap-1.5 text-[10px] font-bold transition shadow-sm ${
-                          isHighlightMode
-                            ? "bg-amber-glow text-primary-foreground glow-amber hover:brightness-110"
-                            : "bg-secondary text-foreground hover:bg-secondary/70 border border-border/40"
-                        }`}
-                      >
-                        <Highlighter className="size-3.5" />
-                        <span>{isHighlightMode ? "Pen Active" : "Highlight Pen"}</span>
-                      </button>
-                    </div>
-
-                    {/* Scrollable Document Text Area */}
-                    <div 
-                      className={`flex-1 overflow-hidden transition-all duration-200 ${
-                        readerDoc ? "max-h-[460px]" : "max-h-[220px]"
-                      } ${
-                        isHighlightMode ? "select-none cursor-cell" : "select-text"
-                      }`}
-                      style={{ fontSize: `${(zoomLevel / 100) * 0.75}rem` }}
-                    >
-                      <Virtuoso
-                        data={getPdfParagraphs(readerDoc)}
-                        style={{ height: '100%' }}
-                        className="pr-1 text-foreground leading-relaxed font-sans"
-                        components={{
-                          Header: () => (
-                            <div className="mb-3">
-                              <h3 className="font-display font-bold text-sm text-foreground leading-snug">
-                                {readerDoc.name.endsWith(".pdf") ? readerDoc.name.slice(0, -4) : readerDoc.name}
-                              </h3>
-                              <p className="text-[10px] text-muted-foreground font-medium tracking-wide uppercase mt-0.5 border-b border-border/60 pb-1 shrink-0">
-                                Index Viewport Reader · {readerDoc.pages} pages
-                              </p>
-                            </div>
-                          )
-                        }}
-                        itemContent={(idx, para) => {
-                          const parts = para.split(/(\s+)/);
-                          return (
-                            <div className="pb-3">
-                              <p className="transition-all duration-200 px-1.5 py-1 rounded relative">
-                                {parts.map((part, partIdx) => {
-                                  const isWhitespace = /^\s+$/.test(part);
-                                  if (isWhitespace) {
-                                    // Check if word before and word after are highlighted to draw continuous background
-                                    const prevWordKey = `${idx}-${partIdx - 1}`;
-                                    const nextWordKey = `${idx}-${partIdx + 1}`;
-                                    const isPrevHighlighted = highlightedSegments[readerDoc.id]?.includes(prevWordKey);
-                                    const isNextHighlighted = highlightedSegments[readerDoc.id]?.includes(nextWordKey);
-                                    const isSpaceHighlighted = isPrevHighlighted && isNextHighlighted;
-
-                                    return (
-                                      <span 
-                                        key={partIdx}
-                                        onMouseDown={(e) => {
-                                          e.stopPropagation();
-                                          isMouseDownRef.current = true;
-                                          if (isSpaceHighlighted) {
-                                            e.preventDefault();
-                                            dragModeRef.current = "erase";
-                                            handleWordClick(readerDoc.id, prevWordKey, "remove");
-                                            handleWordClick(readerDoc.id, nextWordKey, "remove");
-                                          } else if (isHighlightMode) {
-                                            e.preventDefault();
-                                            dragModeRef.current = "highlight";
-                                            handleWordClick(readerDoc.id, prevWordKey, "add");
-                                            handleWordClick(readerDoc.id, nextWordKey, "add");
-                                          }
-                                        }}
-                                        className={isSpaceHighlighted ? "bg-yellow-300/90 text-slate-900 border-b border-yellow-500 font-medium py-1 select-none" : isHighlightMode ? "cursor-cell select-none" : ""}
-                                      >
-                                        {part}
-                                      </span>
-                                    );
-                                  }
-                                  
-                                  const wordKey = `${idx}-${partIdx}`;
-                                  const isWordHighlighted = highlightedSegments[readerDoc.id]?.includes(wordKey);
-
-                                  let highlightClass = "";
-                                  if (isWordHighlighted) {
-                                    const isPrevWordHighlighted = partIdx >= 2 && highlightedSegments[readerDoc.id]?.includes(`${idx}-${partIdx - 2}`);
-                                    const isNextWordHighlighted = partIdx <= parts.length - 3 && highlightedSegments[readerDoc.id]?.includes(`${idx}-${partIdx + 2}`);
-                                    
-                                    if (isPrevWordHighlighted && isNextWordHighlighted) {
-                                      highlightClass = "bg-yellow-300/90 text-slate-900 border-b border-yellow-500 font-medium rounded-none px-0";
-                                    } else if (isPrevWordHighlighted) {
-                                      highlightClass = "bg-yellow-300/90 text-slate-900 border-b border-yellow-500 font-medium rounded-r rounded-l-none pl-0 pr-1 shadow-sm";
-                                    } else if (isNextWordHighlighted) {
-                                      highlightClass = "bg-yellow-300/90 text-slate-900 border-b border-yellow-500 font-medium rounded-l rounded-r-none pl-1 pr-0 shadow-sm";
-                                    } else {
-                                      highlightClass = "bg-yellow-300/90 text-slate-900 border-b border-yellow-500 font-medium rounded px-1 shadow-sm";
-                                    }
-                                  } else if (isHighlightMode) {
-                                    highlightClass = "hover:bg-yellow-500/20 cursor-cell";
-                                  }
-                                  
-                                  return (
-                                    <span
-                                      key={partIdx}
-                                      data-word-key={wordKey}
-                                      onMouseDown={(e) => {
-                                        e.stopPropagation();
-                                        isMouseDownRef.current = true;
-                                        if (isWordHighlighted) {
-                                          e.preventDefault(); // prevent browser default drag text selection
-                                          dragModeRef.current = "erase";
-                                          handleWordClick(readerDoc.id, wordKey, "remove");
-                                        } else if (isHighlightMode) {
-                                          e.preventDefault(); // prevent browser default drag text selection
-                                          dragModeRef.current = "highlight";
-                                          handleWordClick(readerDoc.id, wordKey, "add");
-                                        }
-                                      }}
-                                      onMouseEnter={() => {
-                                        if (isMouseDownRef.current) {
-                                          if (dragModeRef.current === "erase") {
-                                            handleWordClick(readerDoc.id, wordKey, "remove");
-                                          } else if (dragModeRef.current === "highlight" && isHighlightMode) {
-                                            handleWordClick(readerDoc.id, wordKey, "add");
-                                          }
-                                        }
-                                      }}
-                                      className={`transition-all duration-150 select-text ${
-                                        isHighlightMode ? "select-none" : "select-text"
-                                      } ${highlightClass}`}
-                                    >
-                                      {part}
-                                    </span>
-                                  );
-                                })}
-                              </p>
-                            </div>
-                          );
-                        }}
-                      />
-                    </div>
+                  <div className="flex flex-col h-full animate-fade-in duration-500 w-full relative">
+                    <iframe
+                      src={`http://localhost:8000/documents/${encodeURIComponent(readerDoc.name)}`}
+                      className="w-full h-full rounded-xl border-none absolute inset-0 bg-white"
+                      title={readerDoc.name}
+                    />
                   </div>
                 ) : (
                   <div className="h-full flex flex-col items-center justify-center text-center p-4 animate-fade-in duration-500 absolute inset-0">
@@ -1090,7 +928,7 @@ export function Workspace() {
 
               {/* Add from Global Vault via 3D Folder Button */}
               {globalDocumentsNotInSession.length > 0 && (
-                <div className="mt-4 pt-4 border-t border-border/30 flex flex-col items-center">
+                <div className="mt-4 pt-4 border-t border-border/30 flex flex-col items-center relative">
                   <button 
                     onClick={() => setIsGlobalVaultOpen(!isGlobalVaultOpen)}
                     className="flex flex-col items-center justify-center group focus:outline-none"
@@ -1111,14 +949,14 @@ export function Workspace() {
                   </button>
 
                   <div 
-                    className={`w-full grid transition-all duration-500 ease-in-out ${
-                      isGlobalVaultOpen ? "grid-rows-[1fr] opacity-100 mt-4" : "grid-rows-[0fr] opacity-0 mt-0 pointer-events-none"
+                    className={`absolute bottom-[105%] left-0 right-0 z-30 w-full glass-strong rounded-2xl border border-border/50 shadow-2xl transition-all duration-300 ease-out origin-bottom ${
+                      isGlobalVaultOpen ? "opacity-100 mb-2 scale-y-100 pointer-events-auto" : "opacity-0 mb-0 scale-y-95 pointer-events-none"
                     }`}
                   >
-                    <div className="overflow-hidden">
+                    <div className="overflow-hidden rounded-2xl p-2">
                       <div className="w-full space-y-1.5 max-h-[160px] overflow-y-auto pr-1">
                         {globalDocumentsNotInSession.map((doc) => (
-                          <div key={doc.id} className="flex items-center justify-between bg-muted/20 border border-border/40 rounded-xl px-3 py-2 text-xs group/item hover:bg-muted/30 transition">
+                          <div key={doc.id} className="flex items-center justify-between bg-muted/40 border border-border/40 rounded-xl px-3 py-2 text-xs group/item hover:bg-muted/60 transition">
                             <div className="flex items-center gap-2">
                               <FileText className="size-3.5 text-muted-foreground" />
                               <span className="font-semibold text-foreground truncate max-w-[150px]">{doc.name}</span>

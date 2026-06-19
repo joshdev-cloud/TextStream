@@ -734,107 +734,127 @@ function InteractiveSessionCard({
     setIsEditing(false);
   };
 
+  const InnerContent = (
+    <>
+      {/* Header */}
+      <div className="flex items-start justify-between mb-3">
+        <div className={`size-10 rounded-xl grid place-items-center ${a.iconBg} ${a.text}`}>
+          {MODE_ICONS[session.mode] || <BookOpen className="size-5" />}
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          {isActive && (
+            <span className="bg-primary/20 text-primary text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full select-none animate-pulse">
+              Resume Work
+            </span>
+          )}
+          <div className="flex items-center gap-1 opacity-100 md:opacity-0 group-hover/card:opacity-100 transition duration-200">
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsEditing(true);
+              }}
+              title="Rename Session"
+              className="size-7 rounded-lg glass-strong flex items-center justify-center text-muted-foreground hover:text-foreground"
+            >
+              <Edit3 className="size-3.5" />
+            </button>
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onDelete();
+              }}
+              title="Delete to Trash"
+              className="size-7 rounded-lg glass-strong flex items-center justify-center text-coral hover:bg-coral/20"
+            >
+              <Trash2 className="size-3.5" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Title (or editing form) */}
+      {isEditing ? (
+        <div className="flex items-center gap-1.5 my-1" onClick={(e) => e.stopPropagation()}>
+          <input
+            type="text"
+            autoFocus
+            value={tempTitle}
+            onChange={(e) => setTempTitle(e.target.value)}
+            className="flex-1 bg-secondary border border-amber-glow outline-none rounded-xl px-2.5 py-1 text-xs text-foreground font-semibold"
+          />
+          <button
+            onClick={handleSaveRename}
+            className="size-6 rounded-lg bg-mint text-white flex items-center justify-center"
+          >
+            <Check className="size-3.5" />
+          </button>
+          <button
+            onClick={handleCancelRename}
+            className="size-6 rounded-lg bg-secondary text-foreground flex items-center justify-center"
+          >
+            <X className="size-3.5" />
+          </button>
+        </div>
+      ) : (
+        <h3 className="font-display font-bold text-base leading-tight mb-1 truncate text-foreground">
+          {session.title}
+        </h3>
+      )}
+
+      <p className={`text-xs font-semibold uppercase tracking-wider mb-3 ${isActive ? "text-mint" : a.text}`}>
+        {session.mode}
+      </p>
+
+      {/* Stats */}
+      <div className="mt-auto pt-3 border-t border-border/30 flex items-center gap-4 text-[10px] text-muted-foreground">
+        <span className="flex items-center gap-1">
+          <Clock className="size-3" />
+          {formattedDate}
+        </span>
+        <span className="flex items-center gap-1">
+          <FileText className="size-3" />
+          {session.documentIds?.length || 0} docs
+        </span>
+        <span className="flex items-center gap-1">
+          <MessageCircle className="size-3" />
+          {session.messages?.length || 0} chats
+        </span>
+      </div>
+
+      {/* Continue Link */}
+      <div className="mt-3 flex items-center gap-1 text-xs font-semibold opacity-0 group-hover/card:opacity-100 transition">
+        <span className={isActive ? "text-mint" : a.text}>Enter Space</span>
+        <ArrowRight className={`size-3.5 ${isActive ? "text-mint" : a.text}`} />
+      </div>
+    </>
+  );
+
   return (
-    <div className="relative group/card">
-      <Link
-        to="/workspace"
-        onClick={onSelect}
-        className={`glass rounded-3xl p-5 border transition-all duration-300 flex flex-col h-full hover:scale-[1.01] hover:brightness-105 group relative ${a.border}`}
-      >
-        {/* Header */}
-        <div className="flex items-start justify-between mb-3">
-          <div className={`size-10 rounded-xl grid place-items-center ${a.iconBg} ${a.text}`}>
-            {MODE_ICONS[session.mode] || <BookOpen className="size-5" />}
+    <div className="relative group/card h-full">
+      {isActive ? (
+        <StarBorder
+          as={Link}
+          to="/workspace"
+          onClick={onSelect}
+          color="rgba(16, 185, 129, 0.8)" // mint-like glow
+          className="h-full hover:scale-[1.01] hover:brightness-105 transition-all duration-300 w-full"
+        >
+          <div className={`glass w-full h-full p-5 flex flex-col border border-mint/40 bg-mint/5`}>
+            {InnerContent}
           </div>
-
-          <div className="flex items-center gap-1.5">
-            {isActive && (
-              <span className="bg-primary/20 text-primary text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full select-none animate-pulse">
-                Resume Work
-              </span>
-            )}
-            <div className="flex items-center gap-1 opacity-100 md:opacity-0 group-hover/card:opacity-100 transition duration-200">
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setIsEditing(true);
-                }}
-                title="Rename Session"
-                className="size-7 rounded-lg glass-strong flex items-center justify-center text-muted-foreground hover:text-foreground"
-              >
-                <Edit3 className="size-3.5" />
-              </button>
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onDelete();
-                }}
-                title="Delete to Trash"
-                className="size-7 rounded-lg glass-strong flex items-center justify-center text-coral hover:bg-coral/20"
-              >
-                <Trash2 className="size-3.5" />
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Title (or editing form) */}
-        {isEditing ? (
-          <div className="flex items-center gap-1.5 my-1" onClick={(e) => e.stopPropagation()}>
-            <input
-              type="text"
-              autoFocus
-              value={tempTitle}
-              onChange={(e) => setTempTitle(e.target.value)}
-              className="flex-1 bg-secondary border border-amber-glow outline-none rounded-xl px-2.5 py-1 text-xs text-foreground font-semibold"
-            />
-            <button
-              onClick={handleSaveRename}
-              className="size-6 rounded-lg bg-mint text-white flex items-center justify-center"
-            >
-              <Check className="size-3.5" />
-            </button>
-            <button
-              onClick={handleCancelRename}
-              className="size-6 rounded-lg bg-secondary text-foreground flex items-center justify-center"
-            >
-              <X className="size-3.5" />
-            </button>
-          </div>
-        ) : (
-          <h3 className="font-display font-bold text-base leading-tight mb-1 truncate text-foreground">
-            {session.title}
-          </h3>
-        )}
-
-        <p className={`text-xs font-semibold uppercase tracking-wider mb-3 ${isActive ? "text-mint" : a.text}`}>
-          {session.mode}
-        </p>
-
-        {/* Stats */}
-        <div className="mt-auto pt-3 border-t border-border/30 flex items-center gap-4 text-[10px] text-muted-foreground">
-          <span className="flex items-center gap-1">
-            <Clock className="size-3" />
-            {formattedDate}
-          </span>
-          <span className="flex items-center gap-1">
-            <FileText className="size-3" />
-            {session.documentIds?.length || 0} docs
-          </span>
-          <span className="flex items-center gap-1">
-            <MessageCircle className="size-3" />
-            {session.messages?.length || 0} chats
-          </span>
-        </div>
-
-        {/* Continue Link */}
-        <div className="mt-3 flex items-center gap-1 text-xs font-semibold opacity-0 group-hover:opacity-100 transition">
-          <span className={isActive ? "text-mint" : a.text}>Enter Space</span>
-          <ArrowRight className={`size-3.5 ${isActive ? "text-mint" : a.text}`} />
-        </div>
-      </Link>
+        </StarBorder>
+      ) : (
+        <Link
+          to="/workspace"
+          onClick={onSelect}
+          className={`glass rounded-3xl p-5 border transition-all duration-300 flex flex-col h-full hover:scale-[1.01] hover:brightness-105 group relative ${a.border}`}
+        >
+          {InnerContent}
+        </Link>
+      )}
     </div>
   );
 }

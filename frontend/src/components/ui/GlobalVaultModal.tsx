@@ -4,6 +4,7 @@ import { useDocumentManager } from "@/hooks/useDocumentManager";
 import { syncLocalDocuments, uploadLocalDocument } from "@/lib/api/document.functions";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { UploadMenu } from "./UploadMenu";
+import { StorageLimitModal } from "./StorageLimitModal";
 
 export function GlobalVaultModal() {
   const {
@@ -19,6 +20,7 @@ export function GlobalVaultModal() {
 
   const [isScanning, setIsScanning] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [showLimitModal, setShowLimitModal] = useState(false);
   const navigate = useNavigate();
   const routerState = useRouterState();
   const isWorkspace = routerState.location.pathname === "/workspace";
@@ -27,6 +29,10 @@ export function GlobalVaultModal() {
 
   // Trigger server-side scan of backend/documents/
   const handleScanDirectory = async () => {
+    if (documents.length >= 50) {
+      setShowLimitModal(true);
+      return;
+    }
     setIsScanning(true);
     try {
       const result = await syncLocalDocuments();
@@ -51,6 +57,10 @@ export function GlobalVaultModal() {
 
   // Upload file directly into the global vault
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (documents.length >= 50) {
+      setShowLimitModal(true);
+      return;
+    }
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -218,6 +228,20 @@ export function GlobalVaultModal() {
           Files are mirrored in your local <code>backend/documents</code> folder on disk.
         </div>
       </div>
+
+      <StorageLimitModal
+        isOpen={showLimitModal}
+        onClose={() => setShowLimitModal(false)}
+        onDeletePdf={() => {
+          setShowLimitModal(false);
+          // Already in the Global Vault, user can just delete a PDF from the list here
+        }}
+        onDeleteSession={() => {
+          setShowLimitModal(false);
+          toggleGlobalVault(false);
+          navigate({ to: "/" }); // Navigate to Dashboard where sessions can be deleted
+        }}
+      />
     </div>
   );
 }

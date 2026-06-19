@@ -46,6 +46,7 @@ import {
   Highlighter,
   Loader2,
   Paperclip,
+  Trash2,
 } from "lucide-react";
 import { Link, useNavigate } from "@tanstack/react-router";
 
@@ -58,9 +59,12 @@ import { SourceCard } from "@/components/ui/SourceCard";
 import { PopupShell } from "@/components/ui/PopupShell";
 import { EngineCard } from "@/components/ui/EngineCard";
 import { ModuleLabel } from "@/components/ui/ModuleLabel";
+import { type Document } from "@/store/documentStore";
+import { uploadLocalDocument } from "@/lib/api/document.functions";
 import { type ModelKey } from "@/components/ui/ModelBadge";
 import { UploadMenu } from "@/components/ui/UploadMenu";
 import { Folder } from "@/components/ui/Folder";
+import { StorageLimitModal } from "@/components/ui/StorageLimitModal";
 import { useDocumentManager } from "@/hooks/useDocumentManager";
 
 /* ──────────────────────────── Types ──────────────────────────── */
@@ -166,6 +170,7 @@ export function Workspace() {
     documents,
     activeDocuments,
     toggleDocument,
+    toggleGlobalVault,
     logActiveFiles,
     currentModel,
     setCurrentModel,
@@ -173,6 +178,7 @@ export function Workspace() {
     addMessageToSession,
     addDocument,
     addDocumentToSession,
+    removeDocumentFromSession,
     studyGoalHours,
     setStudyGoalHours,
     streakCount,
@@ -208,7 +214,62 @@ export function Workspace() {
   const [isHighlightMode, setIsHighlightMode] = useState(false);
   const [highlightedSegments, setHighlightedSegments] = useState<Record<string, string[]>>({});
   const [isUploading, setIsUploading] = useState(false);
+  const [showLimitModal, setShowLimitModal] = useState(false);
   const dragModeRef = useRef<"highlight" | "erase" | null>(null);
+
+  const handleWorkspaceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (documents.length >= 50) {
+      setShowLimitModal(true);
+      return;
+    }
+    const sessionDocCount = activeSession?.documentIds?.length || 0;
+    if (sessionDocCount >= 10) {
+      alert("Session limit reached: Maximum 10 PDFs allowed per session. Please remove a PDF from this session first.");
+      return;
+    }
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploading(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        const base64 = event.target?.result?.toString().split(',')[1];
+        if (base64) {
+          try {
+            const result = await uploadLocalDocument({
+              data: { fileName: file.name, fileBase64: base64 }
+            });
+            if (result && result.success) {
+              const frontendDoc: Document = {
+                id: file.name,
+                name: file.name,
+                pages: result.pages,
+                active: false,
+                uploadedAt: Date.now(),
+                paragraphs: result.paragraphs
+              } as unknown as Document; // Using type assertion to bypass any mismatches
+              addDocument(frontendDoc);
+              // Immediately attach it to the current session
+              if (activeSession) {
+                addDocumentToSession(activeSession.id, frontendDoc.id);
+                setViewportDocId(frontendDoc.id);
+              }
+            }
+          } catch (err) {
+            console.error(err);
+            alert("Failed to upload document");
+          } finally {
+            setIsUploading(false);
+          }
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to read file");
+      setIsUploading(false);
+    }
+  };
 
   const zoomIn = () => setZoomLevel((prev) => Math.min(200, prev + 10));
   const zoomOut = () => setZoomLevel((prev) => Math.max(70, prev - 10));
@@ -537,9 +598,13 @@ export function Workspace() {
   };
 
   // Upload PDF in Workspace vault
-  const handleWorkspaceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (documents.length >= 50) {
+      setShowLimitModal(true);
+      return;
+    }
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !activeSession) return;
 
     setIsUploading(true);
     try {
@@ -885,7 +950,7 @@ export function Workspace() {
             </div>
 
             {/* Session Vault */}
-            <div className="glass rounded-3xl p-4 shrink-0">
+            <div className="glass rounded-3xl p-4 flex flex-col shrink-0 max-h-[35vh]">
               <PanelHeader label="Session Vault" dot="mint" />
               <p className="text-[10px] text-muted-foreground mt-1 mb-2">
                 PDF indexes loaded into this study space. Click **Read PDF** to view.
@@ -906,13 +971,21 @@ export function Workspace() {
                         <button
                           type="button"
                           onClick={() => setViewportDocId(doc.id)}
-                          className={`absolute right-14 top-1/2 -translate-y-1/2 px-2.5 py-1 rounded-lg text-[10px] font-bold transition shadow ${
+                          className={`absolute right-12 top-1/2 -translate-y-1/2 px-2.5 py-1 rounded-lg text-[10px] font-bold transition shadow ${
                             isCurrentlyReading
                               ? "bg-mint text-white glow-mint"
                               : "bg-secondary/70 text-foreground hover:bg-amber-glow hover:text-primary-foreground"
                           }`}
                         >
                           {isCurrentlyReading ? "Reading" : "Read PDF"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeDocumentFromSession(activeSession.id, doc.id)}
+                          title="Remove PDF from Session"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-muted-foreground hover:text-red-400 hover:bg-red-400/10 transition"
+                        >
+                          <Trash2 className="size-4" />
                         </button>
                       </div>
                     );
@@ -963,7 +1036,9 @@ export function Workspace() {
                             </div>
                             <button
                               onClick={() => addDocumentToSession(activeSession.id, doc.id)}
-                              className="px-2.5 py-1 rounded-lg bg-amber-glow/10 text-amber-glow border border-amber-glow/20 hover:bg-amber-glow hover:text-primary-foreground font-bold transition text-[10px] shadow-sm"
+                              disabled={sessionDocuments.length >= 10}
+                              className="px-2.5 py-1 rounded-lg bg-amber-glow/10 text-amber-glow border border-amber-glow/20 hover:bg-amber-glow hover:text-primary-foreground font-bold transition text-[10px] shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                              title={sessionDocuments.length >= 10 ? "Session limit reached (10 PDFs)" : "Add PDF to this session"}
                             >
                               + Add to Session
                             </button>
@@ -992,6 +1067,21 @@ export function Workspace() {
           onClose={() => setPopup(null)}
         />
       )}
+
+      <StorageLimitModal
+        isOpen={showLimitModal}
+        onClose={() => setShowLimitModal(false)}
+        onDeletePdf={() => {
+          setShowLimitModal(false);
+          // Open Global Vault to manage PDFs
+          toggleGlobalVault(true);
+        }}
+        onDeleteSession={() => {
+          setShowLimitModal(false);
+          // Go to Dashboard to manage sessions
+          navigate({ to: "/" });
+        }}
+      />
     </div>
   );
 }
@@ -1304,6 +1394,7 @@ function ActiveQuizView({
   questions,
   isGenerating,
   onClose,
+  onComplete,
 }: {
   mode: QuizMode;
   questions: QuizQuestion[];

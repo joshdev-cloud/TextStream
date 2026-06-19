@@ -20,7 +20,7 @@ interface NavbarProps {
 }
 
 export function Navbar({ model: propModel, onModelClick, subtitle: propSubtitle }: NavbarProps) {
-  const { currentModel, theme, toggleTheme, activeSession, toggleGlobalVault } = useDocumentManager();
+  const { currentModel, theme, toggleTheme, activeSession, toggleGlobalVault, endSession, setActiveSessionId } = useDocumentManager();
   const routerState = useRouterState();
 
   // Check if we are inside the active study workspace (/workspace)
@@ -56,7 +56,6 @@ export function Navbar({ model: propModel, onModelClick, subtitle: propSubtitle 
             </div>
             <button
               onClick={() => {
-                const { endSession, setActiveSessionId } = useDocumentManager.getState();
                 endSession(activeSession.id);
                 setActiveSessionId(null);
                 window.location.href = "/";

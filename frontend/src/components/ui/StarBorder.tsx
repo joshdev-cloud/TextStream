@@ -12,7 +12,7 @@ interface StarBorderProps {
 }
 
 export const StarBorder: React.FC<StarBorderProps> = ({
-  as: Component = 'div',
+  as: Component = 'div' as any,
   className = '',
   color = 'rgba(74, 222, 128, 0.8)', // Default to a nice mint glow
   speed = '6s',

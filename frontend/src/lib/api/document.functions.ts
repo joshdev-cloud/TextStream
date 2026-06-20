@@ -28,3 +28,18 @@ export const syncLocalDocuments = createServerFn({ method: "GET" })
     const { scanLocalDocumentsFolder } = await import("./document.server");
     return await scanLocalDocumentsFolder();
   });
+
+/**
+ * Server Function: Deletes a document file from the server host.
+ */
+export const deleteLocalDocument = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      fileName: z.string().min(1),
+    })
+  )
+  .handler(async ({ data }) => {
+    // Dynamic import to isolate server-only module from Vite client-side code splitting
+    const { deleteLocalDocumentFile } = await import("./document.server");
+    return await deleteLocalDocumentFile(data.fileName);
+  });

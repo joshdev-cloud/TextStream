@@ -4,6 +4,7 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
@@ -122,12 +123,16 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
+  const routerState = useRouterState();
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <DocumentProvider>
           {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-          <Outlet />
+          <div key={routerState.location.pathname} className="animate-fade-in">
+            <Outlet />
+          </div>
           <GlobalVaultModal />
         </DocumentProvider>
       </AuthProvider>

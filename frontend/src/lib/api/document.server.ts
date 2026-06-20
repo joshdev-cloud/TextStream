@@ -153,3 +153,24 @@ export async function scanLocalDocumentsFolder() {
   
   return results;
 }
+
+/**
+ * Deletes a document from the local backend/documents directory.
+ */
+export async function deleteLocalDocumentFile(fileName: string) {
+  const docsDir = path.join(process.cwd(), "..", "backend", "documents");
+  const filePath = path.join(docsDir, fileName);
+  
+  if (fs.existsSync(filePath)) {
+    try {
+      fs.unlinkSync(filePath);
+      console.log(`[TextStream Server] Deleted file locally: ${filePath}`);
+      return { success: true };
+    } catch (err) {
+      console.error(`[TextStream Server] Failed to delete file ${filePath}:`, err);
+      return { success: false, error: err };
+    }
+  }
+  
+  return { success: false, error: "File not found" };
+}

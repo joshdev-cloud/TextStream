@@ -91,13 +91,15 @@ export function Navbar({ model: propModel, onModelClick, subtitle: propSubtitle 
             <BookOpen className="size-3.5" />
             Workspace
           </Link>
-          <button
-            onClick={() => toggleGlobalVault(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-secondary/40 transition cursor-pointer"
-          >
-            <Folder className="size-3.5" />
-            Global Vault
-          </button>
+          {!isWorkspace && (
+            <button
+              onClick={() => toggleGlobalVault(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-secondary/40 transition cursor-pointer"
+            >
+              <Folder className="size-3.5" />
+              Global Vault
+            </button>
+          )}
         </nav>
 
         {onModelClick && (

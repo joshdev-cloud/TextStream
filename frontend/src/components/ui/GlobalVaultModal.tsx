@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { X, RefreshCw, FileText, Trash2, BookOpen, PlusCircle, Loader2 } from "lucide-react";
 import { useDocumentManager } from "@/hooks/useDocumentManager";
-import { syncLocalDocuments, uploadLocalDocument } from "@/lib/api/document.functions";
+import { syncLocalDocuments, uploadLocalDocument, deleteLocalDocument } from "@/lib/api/document.functions";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { UploadMenu } from "./UploadMenu";
 import { StorageLimitModal } from "./StorageLimitModal";
@@ -119,6 +119,17 @@ export function GlobalVaultModal() {
     }
   };
 
+  const handleDeleteDocument = async (id: string, name: string) => {
+    if (window.confirm(`Are you sure you want to permanently delete "${name}" from the system? This action cannot be undone.`)) {
+      try {
+        await deleteLocalDocument({ data: { fileName: name } });
+        deleteDocument(id);
+      } catch (err) {
+        console.error("Failed to delete document:", err);
+      }
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Dark backdrop */}
@@ -203,7 +214,7 @@ export function GlobalVaultModal() {
                     Read PDF
                   </button>
                   <button
-                    onClick={() => deleteDocument(doc.id)}
+                    onClick={() => handleDeleteDocument(doc.id, doc.name)}
                     title="Remove from system"
                     className="size-7 rounded-lg bg-coral/10 text-coral hover:bg-coral hover:text-white grid place-items-center transition"
                   >

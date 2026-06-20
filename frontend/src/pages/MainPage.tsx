@@ -45,6 +45,7 @@ import { SplashScreen } from "@/components/ui/SplashScreen";
 import { useAuth } from "@/hooks/useAuth";
 import { OnboardingModal } from "@/components/ui/OnboardingModal";
 import { StarBorder } from "@/components/ui/StarBorder";
+import { AnalyticsDashboard } from "@/components/ui/AnalyticsDashboard";
 
 /* ──────────────────────────── Constants ──────────────────────────── */
 
@@ -476,6 +477,8 @@ export function MainPage() {
                     accent="coral"
                   />
                 </div>
+
+                <AnalyticsDashboard isNewUser={isNewUser} />
               </div>
             </section>
 

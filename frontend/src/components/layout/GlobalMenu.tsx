@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Menu, LogIn, Settings, HelpCircle, Info, Mail, LogOut, User as UserIcon } from "lucide-react";
+import { Menu, LogIn, Settings, HelpCircle, Info, Mail, LogOut, User as UserIcon, FileText } from "lucide-react";
 import { AuthModal } from "@/components/ui/AuthModal";
 import { InfoModal, type InfoModalType } from "@/components/ui/InfoModal";
 import { EditProfileModal } from "@/components/ui/EditProfileModal";
@@ -86,7 +86,7 @@ export function GlobalMenu() {
               <div className="h-px bg-border/40 my-1 mx-2" />
 
               <button
-                onClick={() => handleAction(() => {})} // Settings mock - no action right now
+                onClick={() => handleAction(() => setInfoModalType("preferences"))}
                 className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition hover:bg-secondary/60 text-muted-foreground hover:text-foreground cursor-pointer"
               >
                 <Settings className="size-4" />
@@ -101,6 +101,14 @@ export function GlobalMenu() {
                 Help & Support
               </button>
               
+              <button
+                onClick={() => handleAction(() => setInfoModalType("terms"))}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition hover:bg-secondary/60 text-muted-foreground hover:text-foreground cursor-pointer"
+              >
+                <FileText className="size-4" />
+                Terms & Conditions
+              </button>
+
               <button
                 onClick={() => handleAction(() => setInfoModalType("contact"))}
                 className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition hover:bg-secondary/60 text-muted-foreground hover:text-foreground cursor-pointer"

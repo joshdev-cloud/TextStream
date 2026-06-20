@@ -244,3 +244,14 @@
 @utility animate-slide-down {
   animation: slide-down 0.3s ease-out;
 }
+
+html.high-contrast {
+  filter: contrast(125%) saturate(120%);
+}
+
+html.reduced-motion *, html.reduced-motion *::before, html.reduced-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}

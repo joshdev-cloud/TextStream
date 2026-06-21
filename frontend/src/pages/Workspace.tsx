@@ -511,6 +511,7 @@ export function Workspace() {
           question: userQuery,
           model: currentModel,
           document_names: activeDocNames,
+          user_id: user?.id || "global",
           user_name: profile?.name || user?.user_metadata?.full_name || undefined,
           user_age: profile?.age || undefined,
           user_gender: profile?.gender || undefined,
@@ -563,6 +564,7 @@ export function Workspace() {
         },
         body: JSON.stringify({
           document_names: activeDocNames,
+          user_id: user?.id || "global",
           model: currentModel,
         }),
       });
@@ -604,6 +606,7 @@ export function Workspace() {
         },
         body: JSON.stringify({
           document_names: activeDocNames,
+          user_id: user?.id || "global",
           model: currentModel,
           question_count: qCount,
           difficulty: difficulty

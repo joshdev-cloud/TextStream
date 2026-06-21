@@ -8,15 +8,30 @@ interface InfoModalProps {
   type: InfoModalType;
   onClose: () => void;
 }
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/lib/supabase";
 
 export function InfoModal({ type, onClose }: InfoModalProps) {
+  const { user } = useAuth();
   const [mounted, setMounted] = useState(false);
 
-  // Load preferences from localStorage
+  // Load preferences from localStorage or user metadata
   const [highContrast, setHighContrast] = useState(() => localStorage.getItem("pref_high_contrast") === "true");
   const [reducedMotion, setReducedMotion] = useState(() => localStorage.getItem("pref_reduced_motion") === "true");
-  const [emailSummaries, setEmailSummaries] = useState(() => localStorage.getItem("pref_email_summaries") !== "false");
-  const [productUpdates, setProductUpdates] = useState(() => localStorage.getItem("pref_product_updates") === "true");
+  
+  const [emailSummaries, setEmailSummaries] = useState(() => {
+    const local = localStorage.getItem("pref_email_summaries");
+    if (local !== null) return local === "true";
+    return user?.user_metadata?.email_summaries ?? true;
+  });
+  
+  const [productUpdates, setProductUpdates] = useState(() => {
+    const local = localStorage.getItem("pref_product_updates");
+    if (local !== null) return local === "true";
+    return user?.user_metadata?.product_updates ?? false;
+  });
+
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -48,6 +63,25 @@ export function InfoModal({ type, onClose }: InfoModalProps) {
   useEffect(() => {
     localStorage.setItem("pref_product_updates", productUpdates.toString());
   }, [productUpdates]);
+
+  const handleSavePreferences = async () => {
+    setIsSaving(true);
+    try {
+      if (user) {
+        await supabase.auth.updateUser({
+          data: {
+            email_summaries: emailSummaries,
+            product_updates: productUpdates,
+          }
+        });
+      }
+    } catch (err) {
+      console.error("Failed to save preferences to auth:", err);
+    } finally {
+      setIsSaving(false);
+      onClose();
+    }
+  };
 
   if (!type || !mounted) return null;
 
@@ -259,10 +293,11 @@ export function InfoModal({ type, onClose }: InfoModalProps) {
             </div>
           </div>
           <button
-            onClick={onClose}
-            className="w-full py-2 mt-4 text-sm font-bold transition rounded-xl bg-secondary/50 hover:bg-secondary text-foreground"
+            onClick={handleSavePreferences}
+            disabled={isSaving}
+            className="w-full py-2 mt-4 text-sm font-bold transition rounded-xl bg-secondary/50 hover:bg-secondary text-foreground disabled:opacity-50"
           >
-            Save Preferences
+            {isSaving ? "Saving..." : "Save Preferences"}
           </button>
         </div>
       )

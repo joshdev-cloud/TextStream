@@ -1,4 +1,5 @@
 import os
+import tempfile
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -12,9 +13,12 @@ class Config:
     CHUNK_SIZE = 600       
     CHUNK_OVERLAP = 60     
     
-    # Internal Paths
-    DOCS_DIR = "documents"
-    DB_DIR = "chroma_db"
+    # Internal Paths - Use /tmp for Serverless deployments like Vercel
+    IS_SERVERLESS = os.environ.get("VERCEL") == "1" or os.environ.get("RENDER") == "1"
+    BASE_DIR = tempfile.gettempdir() if IS_SERVERLESS else "."
+    
+    DOCS_DIR = os.path.join(BASE_DIR, "documents")
+    DB_DIR = os.path.join(BASE_DIR, "chroma_db")
     
     # 2026 Production Inference Models
     DEFAULT_LLM_PROVIDER = "groq"  

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
-import { Upload, HardDrive, Paperclip, Loader2, PlusCircle } from "lucide-react";
+import { Upload, HardDrive, Paperclip, Loader2, PlusCircle, Globe } from "lucide-react";
 import { DrivePickerModal } from "./DrivePickerModal";
+import { WebSearchModal } from "./WebSearchModal";
 import { createPortal } from "react-dom";
 
 export type UploadVariant = "dashboard" | "workspace" | "vault";
@@ -8,12 +9,14 @@ export type UploadVariant = "dashboard" | "workspace" | "vault";
 interface UploadMenuProps {
   variant: UploadVariant;
   onLocalUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onWebSearch?: (query: string) => Promise<void>;
   isUploading?: boolean;
 }
 
-export function UploadMenu({ variant, onLocalUpload, isUploading }: UploadMenuProps) {
+export function UploadMenu({ variant, onLocalUpload, onWebSearch, isUploading }: UploadMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [showDriveModal, setShowDriveModal] = useState(false);
+  const [showWebSearchModal, setShowWebSearchModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const [coords, setCoords] = useState({ top: 0, left: 0, bottom: 0 });
@@ -29,7 +32,6 @@ export function UploadMenu({ variant, onLocalUpload, isUploading }: UploadMenuPr
     
     function handleClickOutside(event: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        // We also need to check if they clicked inside the portal
         const portal = document.getElementById("upload-menu-portal");
         if (portal && portal.contains(event.target as Node)) {
           return;
@@ -50,7 +52,6 @@ export function UploadMenu({ variant, onLocalUpload, isUploading }: UploadMenuPr
     };
   }, [isOpen]);
 
-
   const handleLocalClick = () => {
     setIsOpen(false);
     if (fileInputRef.current) {
@@ -61,6 +62,15 @@ export function UploadMenu({ variant, onLocalUpload, isUploading }: UploadMenuPr
   const handleDriveClick = () => {
     setIsOpen(false);
     setShowDriveModal(true);
+  };
+
+  const handleWebSearchClick = () => {
+    setIsOpen(false);
+    if (onWebSearch) {
+      setShowWebSearchModal(true);
+    } else {
+      alert("Web search is only available in Workspace.");
+    }
   };
 
   return (
@@ -153,6 +163,16 @@ export function UploadMenu({ variant, onLocalUpload, isUploading }: UploadMenuPr
                 <img src="https://upload.wikimedia.org/wikipedia/commons/1/12/Google_Drive_icon_%282020%29.svg" alt="Google Drive" className="size-4 opacity-80" />
                 Google Drive
               </button>
+              {onWebSearch && (
+                <button
+                  type="button"
+                  onClick={handleWebSearchClick}
+                  className="flex items-center w-full gap-3 px-3 py-2 text-sm font-medium transition cursor-pointer rounded-xl hover:bg-secondary/60 text-muted-foreground hover:text-foreground"
+                >
+                  <Globe className="size-4 text-amber-glow" />
+                  Search Web (ArXiv)
+                </button>
+              )}
             </div>
           </div>,
           document.body
@@ -171,6 +191,15 @@ export function UploadMenu({ variant, onLocalUpload, isUploading }: UploadMenuPr
       <DrivePickerModal 
         isOpen={showDriveModal} 
         onClose={() => setShowDriveModal(false)} 
+      />
+      <WebSearchModal
+        isOpen={showWebSearchModal}
+        onClose={() => setShowWebSearchModal(false)}
+        onSearch={async (query) => {
+          if (onWebSearch) {
+            await onWebSearch(query);
+          }
+        }}
       />
     </>
   );

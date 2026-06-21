@@ -231,46 +231,92 @@ export function Workspace() {
     if (!file) return;
     setIsUploading(true);
     try {
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        const base64 = event.target?.result?.toString().split(',')[1];
-        if (base64) {
-          try {
-            const result = await uploadLocalDocument({
-              data: { fileName: file.name, fileBase64: base64 }
-            });
-            if (result && result.success) {
-              const frontendDoc: Document = {
-                id: file.name,
-                name: file.name,
-                pages: result.pages,
-                active: false,
-                uploadedAt: Date.now(),
-                paragraphs: result.paragraphs
-              } as unknown as Document; // Using type assertion to bypass any mismatches
-              addDocument(frontendDoc);
-              // Immediately attach it to the current session
-              if (activeSession) {
-                addDocumentToSession(activeSession.id, frontendDoc.id);
-                setViewportDocId(frontendDoc.id);
-              }
-            }
-          } catch (err) {
-            console.error(err);
-            alert("Failed to upload document");
-          } finally {
-            setIsUploading(false);
-          }
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("user_id", user?.id || "global");
+
+      const response = await fetch("http://localhost:8000/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Upload failed");
+      }
+
+      const result = await response.json();
+
+      if (result && result.success) {
+        const frontendDoc: Document = {
+          id: file.name,
+          name: file.name,
+          pages: result.pages || 1,
+          active: false,
+          uploadedAt: Date.now().toString(),
+          paragraphs: result.paragraphs || []
+        } as unknown as Document;
+        addDocument(frontendDoc);
+        if (activeSession) {
+          addDocumentToSession(activeSession.id, frontendDoc.id);
+          setViewportDocId(frontendDoc.id);
         }
-      };
-      reader.readAsDataURL(file);
+      }
     } catch (err) {
       console.error(err);
-      alert("Failed to read file");
+      alert("Failed to upload document");
+    } finally {
       setIsUploading(false);
     }
   };
 
+  const handleWebSearch = async (query: string) => {
+    if (documents.length >= 50) {
+      setShowLimitModal(true);
+      return;
+    }
+    const sessionDocCount = activeSession?.documentIds?.length || 0;
+    if (sessionDocCount >= 10) {
+      alert("Session limit reached: Maximum 10 PDFs allowed per session.");
+      return;
+    }
+    setIsUploading(true);
+    try {
+      const response = await fetch("http://localhost:8000/api/search_web_pdf", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ query, user_id: user?.id || "global" }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Web search failed");
+      }
+
+      const result = await response.json();
+
+      if (result && result.success) {
+        const frontendDoc: Document = {
+          id: result.filename,
+          name: result.filename,
+          pages: result.pages || 1,
+          active: false,
+          uploadedAt: Date.now().toString(),
+          paragraphs: result.paragraphs || []
+        } as unknown as Document;
+        addDocument(frontendDoc);
+        if (activeSession) {
+          addDocumentToSession(activeSession.id, frontendDoc.id);
+          setViewportDocId(frontendDoc.id);
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      throw err; // allow WebSearchModal to catch and alert
+    } finally {
+      setIsUploading(false);
+    }
+  };
   const zoomIn = () => setZoomLevel((prev) => Math.min(200, prev + 10));
   const zoomOut = () => setZoomLevel((prev) => Math.max(70, prev - 10));
   const toggleHighlightMode = () => setIsHighlightMode((prev) => !prev);
@@ -597,7 +643,6 @@ export function Workspace() {
     }
   };
 
-  // Upload PDF in Workspace vault
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (documents.length >= 50) {
       setShowLimitModal(true);
@@ -608,47 +653,38 @@ export function Workspace() {
 
     setIsUploading(true);
     try {
-      const reader = new FileReader();
-      reader.onload = async () => {
-        try {
-          const base64String = (reader.result as string).split(",")[1];
-          
-          // Import our server function
-          const { uploadLocalDocument } = await import("@/lib/api/document.functions");
-          
-          const result = await uploadLocalDocument({
-            data: {
-              fileName: file.name,
-              fileBase64: base64String
-            }
-          });
-          
-          if (result && result.success) {
-            const newDoc = {
-              id: `doc-${Date.now()}`,
-              name: file.name,
-              pages: result.pages,
-              active: true,
-              uploadedAt: new Date().toISOString(),
-              paragraphs: result.paragraphs
-            };
-            addDocument(newDoc);
-            addDocumentToSession(activeSession.id, newDoc.id);
-            // Set viewport to view the newly uploaded document immediately!
-            setViewportDocId(newDoc.id);
-          }
-        } catch (err) {
-          console.error("Local file upload failed in onload:", err);
-        } finally {
-          setIsUploading(false);
-        }
-      };
-      reader.onerror = () => {
-        setIsUploading(false);
-      };
-      reader.readAsDataURL(file);
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("user_id", user?.id || "global");
+
+      const response = await fetch("http://localhost:8000/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Upload failed");
+      }
+
+      const result = await response.json();
+
+      if (result && result.success) {
+        const newDoc = {
+          id: `doc-${Date.now()}`,
+          name: file.name,
+          pages: result.pages || 1,
+          active: true,
+          uploadedAt: new Date().toISOString(),
+          paragraphs: result.paragraphs || []
+        } as any;
+        addDocument(newDoc);
+        addDocumentToSession(activeSession.id, newDoc.id);
+        setViewportDocId(newDoc.id);
+      }
     } catch (error) {
       console.error("Local file upload failed:", error);
+      alert("Failed to upload document");
+    } finally {
       setIsUploading(false);
     }
   };
@@ -869,6 +905,7 @@ export function Workspace() {
                   <UploadMenu
                     variant="workspace"
                     onLocalUpload={handleWorkspaceUpload}
+                    onWebSearch={handleWebSearch}
                     isUploading={isUploading || workMode === "summarize"}
                   />
                   <button

@@ -3,7 +3,6 @@ import { X, RefreshCw, FileText, Trash2, BookOpen, PlusCircle, Loader2 } from "l
 import { useDocumentManager } from "@/hooks/useDocumentManager";
 import { syncLocalDocuments, uploadLocalDocument, deleteLocalDocument } from "@/lib/api/document.functions";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
-import { UploadMenu } from "./UploadMenu";
 import { StorageLimitModal } from "./StorageLimitModal";
 
 export function GlobalVaultModal() {
@@ -19,7 +18,6 @@ export function GlobalVaultModal() {
   } = useDocumentManager();
 
   const [isScanning, setIsScanning] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
   const [showLimitModal, setShowLimitModal] = useState(false);
   const navigate = useNavigate();
   const routerState = useRouterState();
@@ -55,47 +53,7 @@ export function GlobalVaultModal() {
     }
   };
 
-  // Upload file directly into the global vault
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (documents.length >= 50) {
-      setShowLimitModal(true);
-      return;
-    }
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsUploading(true);
-    try {
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const base64String = (reader.result as string).split(",")[1];
-        
-        const result = await uploadLocalDocument({
-          data: {
-            fileName: file.name,
-            fileBase64: base64String,
-          },
-        });
-        
-        if (result && result.success) {
-          const newDoc = {
-            id: `doc-${Date.now()}`,
-            name: file.name,
-            pages: result.pages,
-            active: true,
-            uploadedAt: new Date().toISOString(),
-            paragraphs: result.paragraphs,
-          };
-          addDocument(newDoc);
-        }
-      };
-      reader.readAsDataURL(file);
-    } catch (err) {
-      console.error("Upload failed:", err);
-    } finally {
-      setIsUploading(false);
-    }
-  };
+  // Uploading to global vault is disabled per user requirements
 
   // Open PDF directly in Screen Reader Viewport
   const handleReadPdf = (docId: string) => {
@@ -146,8 +104,9 @@ export function GlobalVaultModal() {
             <h3 className="font-display font-extrabold text-lg text-foreground flex items-center gap-2">
               📦 TextStream Global Vault
             </h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Scan host directory or upload files to synchronize your textbook database.
+            <p className="text-xs text-muted-foreground mt-0.5 max-w-lg">
+              The Global Vault is a read-only collection of pre-loaded study resources. 
+              If you do not have your own PDFs, you can explore and use these documents in your sessions.
             </p>
           </div>
           <button 
@@ -173,13 +132,7 @@ export function GlobalVaultModal() {
             {isScanning ? "Scanning Folder..." : "Scan & Sync Folder"}
           </button>
 
-          <div>
-            <UploadMenu 
-              variant="vault"
-              onLocalUpload={handleFileUpload}
-              isUploading={isUploading}
-            />
-          </div>
+          <div className="flex-1" />
         </div>
 
         {/* Document List */}

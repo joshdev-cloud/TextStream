@@ -428,14 +428,16 @@ export function MainPage() {
                     </p>
 
                     <div className="mt-4 flex items-center gap-2 flex-wrap">
-                      <UploadMenu 
-                        variant="dashboard"
-                        onLocalUpload={handleFileUpload}
-                        isUploading={isUploading}
-                      />
-                      <span className="text-[10px] text-muted-foreground">
-                        Supports PDF, TXT up to 50MB
-                      </span>
+                      <button
+                        onClick={() => {
+                          const { toggleGlobalVault } = useDocumentManager.getState();
+                          toggleGlobalVault(true);
+                        }}
+                        className="glass rounded-2xl px-4 py-2 border border-border/50 text-xs font-semibold hover:bg-secondary/45 transition flex items-center gap-2"
+                      >
+                        <BookOpen className="size-3.5 text-lavender" />
+                        Explore Global Vault
+                      </button>
                     </div>
                   </div>
 

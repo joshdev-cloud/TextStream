@@ -1,7 +1,7 @@
 import os
 import json
 import shutil
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
@@ -21,7 +21,6 @@ from fastapi.staticfiles import StaticFiles
 
 app = FastAPI(title="TextStream API Backend", version="2.0")
 
-# Enable Cross-Origin Resource Sharing (CORS) so your frontend environments can talk to it
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -38,14 +37,15 @@ app.mount("/documents", StaticFiles(directory=Config.DOCS_DIR), name="documents"
 # ──────────────────────────── Shared State ────────────────────────────
 
 embeddings = None
-vector_store = None
+vector_stores = {}
 
 # ──────────────────────────── Request / Response Models ────────────────────────────
 
 class ChatRequest(BaseModel):
     question: str
-    model: str = "velocity"  # "velocity" (Groq) or "deep" (Gemini)
-    document_names: List[str] = []  # empty = search all docs
+    model: str = "velocity"
+    document_names: List[str] = []
+    user_id: str = "global"
     user_name: Optional[str] = None
     user_age: Optional[int] = None
     user_gender: Optional[str] = None
@@ -61,6 +61,7 @@ class ChatResponse(BaseModel):
 class SummarizeRequest(BaseModel):
     document_names: List[str] = []
     model: str = "velocity"
+    user_id: str = "global"
 
 class SummarizeResponse(BaseModel):
     takeaways: List[str]
@@ -71,7 +72,8 @@ class QuizRequest(BaseModel):
     document_names: List[str] = []
     model: str = "velocity"
     question_count: int = 5
-    difficulty: int = 50  # 0–100
+    difficulty: int = 50
+    user_id: str = "global"
 
 class QuizQuestion(BaseModel):
     question: str
@@ -86,10 +88,13 @@ class DocumentInfo(BaseModel):
     name: str
     size_bytes: int
 
+class SearchWebRequest(BaseModel):
+    query: str
+    user_id: str = "global"
+
 # ──────────────────────────── Helpers ────────────────────────────
 
 def get_llm(model_key: str, temperature: float = 0.1):
-    """Instantiate the correct LLM based on frontend model key."""
     if model_key == "deep":
         return ChatGoogleGenerativeAI(
             google_api_key=Config.GEMINI_API_KEY,
@@ -97,48 +102,43 @@ def get_llm(model_key: str, temperature: float = 0.1):
             temperature=temperature,
         )
     else:
-        # Default to Groq / Velocity
         return ChatGroq(
             groq_api_key=Config.GROQ_API_KEY,
             model_name=Config.GROQ_MODEL,
             temperature=temperature,
         )
 
-
 def get_embeddings():
-    """Lazy-init and cache the embedding model."""
     global embeddings
     if embeddings is None:
         print("[Embedding] Loading model (all-MiniLM-L6-v2)...")
         embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     return embeddings
 
-
-def get_vector_store():
-    """Lazy-init and cache the ChromaDB vector store."""
-    global vector_store
-    if vector_store is None:
+def get_vector_store(user_id: str):
+    global vector_stores
+    if user_id not in vector_stores or vector_stores[user_id] is None:
         emb = get_embeddings()
-        if os.path.exists(Config.DB_DIR) and len(os.listdir(Config.DB_DIR)) > 0:
-            print("[VectorStore] Loading existing ChromaDB vector store...")
-            vector_store = Chroma(persist_directory=Config.DB_DIR, embedding_function=emb)
+        db_path = os.path.join(Config.DB_DIR, user_id)
+        if os.path.exists(db_path) and len(os.listdir(db_path)) > 0:
+            print(f"[VectorStore] Loading existing ChromaDB for user: {user_id}")
+            vector_stores[user_id] = Chroma(persist_directory=db_path, embedding_function=emb)
         else:
-            # Build from documents folder
-            rebuild_vector_store()
-    return vector_store
+            rebuild_vector_store(user_id)
+    return vector_stores.get(user_id)
 
-
-def rebuild_vector_store():
-    """Re-index all documents in the documents folder into ChromaDB."""
-    global vector_store
+def rebuild_vector_store(user_id: str):
+    global vector_stores
     emb = get_embeddings()
+    user_docs_dir = os.path.join(Config.DOCS_DIR, user_id)
+    db_path = os.path.join(Config.DB_DIR, user_id)
 
-    if not os.path.exists(Config.DOCS_DIR):
-        os.makedirs(Config.DOCS_DIR)
+    if not os.path.exists(user_docs_dir):
+        os.makedirs(user_docs_dir)
 
     all_docs = []
-    for filename in os.listdir(Config.DOCS_DIR):
-        filepath = os.path.join(Config.DOCS_DIR, filename)
+    for filename in os.listdir(user_docs_dir):
+        filepath = os.path.join(user_docs_dir, filename)
         if filename.lower().endswith(".pdf"):
             try:
                 loader = PyPDFLoader(filepath)
@@ -153,9 +153,8 @@ def rebuild_vector_store():
                 print(f"[Warning] Failed to load TXT {filename}: {e}")
 
     if not all_docs:
-        print("[Warning] Documents folder is empty. Upload files to get started.")
-        # Create an empty vector store
-        vector_store = Chroma(persist_directory=Config.DB_DIR, embedding_function=emb)
+        print(f"[Warning] Documents folder for {user_id} is empty.")
+        vector_stores[user_id] = Chroma(persist_directory=db_path, embedding_function=emb)
         return
 
     splitter = RecursiveCharacterTextSplitter(
@@ -164,41 +163,36 @@ def rebuild_vector_store():
     )
     text_chunks = splitter.split_documents(all_docs)
 
-    # Normalize source metadata to just the filename (not full path)
     for chunk in text_chunks:
         chunk.metadata["source"] = os.path.basename(chunk.metadata.get("source", "unknown"))
 
-    # Close existing vector store to release file locks (critical for Windows)
-    if vector_store is not None:
+    if vector_stores.get(user_id) is not None:
         try:
-            # Release the underlying Chroma client connection
-            if hasattr(vector_store, '_client'):
-                vector_store._client.reset()
-            vector_store = None
+            if hasattr(vector_stores[user_id], '_client'):
+                vector_stores[user_id]._client.reset()
+            vector_stores[user_id] = None
         except Exception as e:
-            print(f"[Warning] Could not cleanly close existing vector store: {e}")
-            vector_store = None
+            print(f"[Warning] Could not cleanly close vector store: {e}")
 
-    # Wipe and rebuild
-    if os.path.exists(Config.DB_DIR):
+    if os.path.exists(db_path):
         try:
-            shutil.rmtree(Config.DB_DIR)
+            shutil.rmtree(db_path)
         except Exception as e:
-            print(f"[Warning] Could not delete old DB dir (will overwrite): {e}")
+            print(f"[Warning] Could not delete old DB dir: {e}")
 
-    vector_store = Chroma.from_documents(
+    vector_stores[user_id] = Chroma.from_documents(
         documents=text_chunks,
         embedding=emb,
-        persist_directory=Config.DB_DIR,
+        persist_directory=db_path,
     )
-    print(f"[Success] Vector store rebuilt with {len(text_chunks)} chunks from {len(set(c.metadata['source'] for c in text_chunks))} files.")
+    print(f"[Success] Rebuilt vector store for {user_id}")
 
 
-def ingest_single_file(filepath: str):
-    """Add a single file to the existing vector store without full rebuild."""
-    global vector_store
+def ingest_single_file(filepath: str, user_id: str):
+    global vector_stores
     emb = get_embeddings()
     filename = os.path.basename(filepath)
+    db_path = os.path.join(Config.DB_DIR, user_id)
 
     docs = []
     if filename.lower().endswith(".pdf"):
@@ -217,32 +211,28 @@ def ingest_single_file(filepath: str):
     )
     chunks = splitter.split_documents(docs)
 
-    # Normalize source
     for chunk in chunks:
         chunk.metadata["source"] = os.path.basename(chunk.metadata.get("source", "unknown"))
 
-    if vector_store is None:
-        vector_store = Chroma.from_documents(
+    vs = vector_stores.get(user_id)
+    if vs is None:
+        vector_stores[user_id] = Chroma.from_documents(
             documents=chunks,
             embedding=emb,
-            persist_directory=Config.DB_DIR,
+            persist_directory=db_path,
         )
     else:
-        vector_store.add_documents(chunks)
+        vs.add_documents(chunks)
+        vs.persist()
 
-    print(f"[Success] Ingested {len(chunks)} chunks from {filename}")
-
-
-def build_filtered_retriever(document_names: List[str], k: int = None):
-    """Build a retriever that optionally filters by source document names."""
-    vs = get_vector_store()
+def build_filtered_retriever(document_names: List[str], user_id: str, k: int = None):
+    vs = get_vector_store(user_id)
     if vs is None:
         return None
 
     top_k = k or Config.TOP_K_RESULTS
 
     if document_names and len(document_names) > 0:
-        # ChromaDB where filter: source must be one of the specified filenames
         search_filter = {"source": {"$in": document_names}}
         return vs.as_retriever(
             search_type="mmr",
@@ -254,24 +244,18 @@ def build_filtered_retriever(document_names: List[str], k: int = None):
             search_kwargs={"k": top_k, "fetch_k": min(top_k * 4, 100)}
         )
 
-
-# ──────────────────────────── Startup ────────────────────────────
+# ──────────────────────────── API Endpoints ────────────────────────────
 
 @app.on_event("startup")
 async def startup_event():
     print("[System] Initializing TextStream Core Systems...")
-    get_vector_store()
-    print("[Success] TextStream backend ready.")
-
-
-# ──────────────────────────── API Endpoints ────────────────────────────
+    get_vector_store("global")
 
 @app.post("/api/chat", response_model=ChatResponse)
 def chat_with_documents(request: ChatRequest):
-    """Chat about documents using RAG with the selected AI model."""
-    retriever = build_filtered_retriever(request.document_names)
+    retriever = build_filtered_retriever(request.document_names, request.user_id)
     if retriever is None:
-        raise HTTPException(status_code=400, detail="No documents indexed. Upload files first.")
+        raise HTTPException(status_code=400, detail="No documents indexed.")
 
     llm = get_llm(request.model)
 
@@ -282,20 +266,17 @@ def chat_with_documents(request: ChatRequest):
             user_context += f" They are {request.user_age} years old."
         if request.user_gender and request.user_gender != "Prefer not to say":
             user_context += f" Their gender is {request.user_gender}."
-        user_context += "\nCRITICAL INSTRUCTION: You must perfectly tailor your tone, reading level, and analogies to suit this user. For example, use age-appropriate analogies and vocabulary."
 
     prompt_blueprint = (
-        "You are TextStream — a highly intelligent and articulate AI assistant with the eloquence and deep analytical mind of a distinguished English literature teacher. "
-        "Your primary goal is to provide comprehensive, nuanced, and beautifully written answers based strictly on the provided documents.\n\n"
+        "You are TextStream — a highly intelligent and articulate AI assistant. "
+        "Your primary goal is to provide comprehensive answers based strictly on the provided documents.\n\n"
         "STYLE AND BEHAVIOR RULES:\n"
-        "- Write with elegant, impeccable grammar. Your prose should flow naturally and intelligently.\n"
-        "- DO NOT use markdown bolding (e.g., **text**). It disrupts the natural flow of conversation.\n"
-        "- DO use bullet points to clearly organize and break down complex concepts.\n"
-        "- Maintain a natural, conversational yet highly academic tone. You are an expert guide helping the user understand the material deeply.\n"
-        "- Be highly comprehensive and thorough. Dive deep into the specific details, themes, arguments, and evidence presented in the text.\n"
-        "- Synthesize information across different parts of the context to provide a cohesive and well-structured answer.\n"
-        "- ALWAYS ground your answers in the provided text. Refer to specific details and concepts found in the context.\n"
-        "- If the answer cannot be found in the context, explicitly and gracefully state that it is not covered in the documents, and only then offer general knowledge."
+        "- Write with elegant, impeccable grammar.\n"
+        "- DO NOT use markdown bolding (e.g., **text**).\n"
+        "- DO use bullet points to clearly organize.\n"
+        "- Maintain an academic tone.\n"
+        "- ALWAYS ground your answers in the provided text.\n"
+        "- If the answer cannot be found in the context, state that explicitly.\n"
         f"{user_context}\n\n"
         "Context from the user's documents:\n{context}"
     )
@@ -309,7 +290,6 @@ def chat_with_documents(request: ChatRequest):
 
     try:
         output = rag_chain.invoke({"input": request.question})
-
         sources_list = []
         seen = set()
         for doc in output.get("context", []):
@@ -318,46 +298,29 @@ def chat_with_documents(request: ChatRequest):
             label = f"{path}-page-{page}" if page is not None else path
 
             if label not in seen:
-                sources_list.append(SourceMetadata(
-                    source=path,
-                    page=page + 1 if page is not None else None,
-                ))
+                sources_list.append(SourceMetadata(source=path, page=page + 1 if page is not None else None))
                 seen.add(label)
 
         return ChatResponse(answer=output["answer"], sources=sources_list)
-
     except Exception as err:
-        print(f"[Error] Chat error: {err}")
         raise HTTPException(status_code=500, detail=str(err))
-
-
-# Legacy endpoint — keep for backwards compatibility
-@app.post("/api/query", response_model=ChatResponse)
-def query_documents_legacy(request: ChatRequest):
-    """Legacy endpoint that forwards to /api/chat."""
-    return chat_with_documents(request)
-
 
 @app.post("/api/summarize", response_model=SummarizeResponse)
 def summarize_documents(request: SummarizeRequest):
-    """Generate a structured summary of the specified documents."""
-    retriever = build_filtered_retriever(request.document_names, k=12)
+    retriever = build_filtered_retriever(request.document_names, request.user_id, k=12)
     if retriever is None:
-        raise HTTPException(status_code=400, detail="No documents indexed. Upload files first.")
+        raise HTTPException(status_code=400, detail="No documents indexed.")
 
     llm = get_llm(request.model)
 
     summary_prompt = (
-        "You are TextStream — an advanced AI research assistant. Analyze these document excerpts and produce a structured, highly analytical study summary.\n\n"
-        "You MUST respond with valid JSON in this exact format (no markdown fences, just raw JSON):\n"
+        "You are TextStream. Analyze these excerpts and produce a summary.\n\n"
+        "You MUST respond with valid JSON in this exact format:\n"
         '{{\n'
-        '  "takeaways": ["Key takeaway 1", "Key takeaway 2", ...],\n'
-        '  "terminology": ["term1", "term2", ...],\n'
-        '  "insights": "A comprehensive paragraph synthesizing the core themes and arguments found in the documents. Maintain an academic tone."\n'
+        '  "takeaways": ["Takeaway 1", "Takeaway 2"],\n'
+        '  "terminology": ["term1"],\n'
+        '  "insights": "A comprehensive paragraph synthesizing the themes."\n'
         '}}\n\n'
-        "STYLE: Provide detailed, rigorous takeaways — avoid generic filler. "
-        "The insights paragraph should offer a deep, synthesized overview of the provided text, similar to a high-level executive summary. "
-        "Provide 4-8 comprehensive takeaways, 5-10 key terminology terms, and an analytical insights paragraph.\n\n"
         "Document excerpts:\n{context}"
     )
     prompt = ChatPromptTemplate.from_messages([
@@ -369,194 +332,220 @@ def summarize_documents(request: SummarizeRequest):
     rag_chain = create_retrieval_chain(retriever, qa_chain)
 
     try:
-        query_text = " ".join(request.document_names) + " core concepts, key terms, definitions, main arguments, important facts, comprehensive summary overview" if request.document_names else "core concepts, key terms, definitions, main arguments, important facts, comprehensive summary overview"
+        query_text = " ".join(request.document_names) + " comprehensive summary" if request.document_names else "comprehensive summary"
         output = rag_chain.invoke({"input": query_text})
         raw_answer = output["answer"]
 
-        # Parse the JSON response
-        # Strip markdown code fences if LLM wraps it
         cleaned = raw_answer.strip()
         if cleaned.startswith("```"):
             cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
         if cleaned.endswith("```"):
             cleaned = cleaned[:-3]
-        cleaned = cleaned.strip()
 
         try:
-            parsed = json.loads(cleaned)
-        except json.JSONDecodeError:
-            # Fallback: extract what we can
-            parsed = {
-                "takeaways": [raw_answer[:200]],
-                "terminology": [],
-                "insights": raw_answer,
-            }
+            parsed = json.loads(cleaned.strip())
+        except:
+            parsed = {"takeaways": [raw_answer[:200]], "terminology": [], "insights": raw_answer}
 
         return SummarizeResponse(
             takeaways=parsed.get("takeaways", []),
             terminology=parsed.get("terminology", []),
             insights=parsed.get("insights", ""),
         )
-
     except Exception as err:
-        print(f"[Error] Summarize error: {err}")
         raise HTTPException(status_code=500, detail=str(err))
-
 
 @app.post("/api/quiz", response_model=QuizResponse)
 def generate_quiz(request: QuizRequest):
-    """Generate quiz questions from the specified documents."""
-    retriever = build_filtered_retriever(request.document_names, k=15)
+    retriever = build_filtered_retriever(request.document_names, request.user_id, k=15)
     if retriever is None:
-        raise HTTPException(status_code=400, detail="No documents indexed. Upload files first.")
+        raise HTTPException(status_code=400, detail="No documents indexed.")
 
     llm = get_llm(request.model, temperature=0.7)
-
     difficulty_label = "easy" if request.difficulty < 33 else "challenging" if request.difficulty < 66 else "very hard exam-level"
 
     quiz_prompt = (
-        f"You are an advanced AI research assistant. Create exactly {request.question_count} highly rigorous multiple-choice questions "
-        f"at a {difficulty_label} difficulty level based on the document excerpts below.\n\n"
-        "You MUST respond with valid JSON in this exact format (no markdown fences, just raw JSON):\n"
+        f"Create exactly {request.question_count} rigorous multiple-choice questions at {difficulty_label} difficulty.\n\n"
+        "You MUST respond with valid JSON:\n"
         '{{\n'
         '  "questions": [\n'
         '    {{\n'
-        '      "question": "The question text",\n'
-        '      "options": ["Option A", "Option B", "Option C", "Option D"],\n'
+        '      "question": "Text",\n'
+        '      "options": ["A", "B", "C", "D"],\n'
         '      "correct_index": 0,\n'
-        '      "explanation": "A clear, academic explanation of why this answer is correct based on the text."\n'
+        '      "explanation": "Why correct"\n'
         '    }}\n'
         '  ]\n'
         '}}\n\n'
-        "Each question MUST have exactly 4 options. correct_index is 0-based.\n"
-        "Make questions that test deep comprehension, synthesis of ideas, and critical analysis, avoiding trivial memorization. "
-        "Write questions in a formal, professional style. Make wrong options plausible, relying on common misconceptions or nuanced misinterpretations of the text.\n\n"
         "Document excerpts:\n{context}"
     )
     prompt = ChatPromptTemplate.from_messages([
         ("system", quiz_prompt),
-        ("human", f"Generate {request.question_count} quiz questions at {difficulty_label} difficulty."),
+        ("human", f"Generate {request.question_count} quiz questions."),
     ])
 
     qa_chain = create_stuff_documents_chain(llm, prompt)
     rag_chain = create_retrieval_chain(retriever, qa_chain)
 
     try:
-        import random
-        random_aspects = [
-            "focus on definitions and terminology",
-            "focus on theoretical concepts and methodology",
-            "focus on case studies and real-world examples",
-            "focus on underlying principles and arguments",
-            "focus on the minor details and specific facts",
-            "focus on the big picture and overarching themes"
-        ]
-        focus = random.choice(random_aspects)
-        
-        query_text = " ".join(request.document_names) + f" core concepts, key terms, {focus}, comprehensive summary overview" if request.document_names else f"core concepts, key terms, {focus}, comprehensive summary overview"
-        
-        output = rag_chain.invoke({
-            "input": query_text
-        })
+        query_text = " ".join(request.document_names) + " quiz concepts" if request.document_names else "quiz concepts"
+        output = rag_chain.invoke({"input": query_text})
         raw_answer = output["answer"]
 
-        # Parse JSON
         cleaned = raw_answer.strip()
         if cleaned.startswith("```"):
             cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
         if cleaned.endswith("```"):
             cleaned = cleaned[:-3]
-        cleaned = cleaned.strip()
 
         try:
-            parsed = json.loads(cleaned)
-        except json.JSONDecodeError:
-            # Return a fallback question
-            return QuizResponse(questions=[
-                QuizQuestion(
-                    question="The AI could not generate structured quiz questions. Please try again.",
-                    options=["Try again", "Change model", "Upload more documents", "Reduce question count"],
-                    correct_index=0,
-                    explanation="There was a parsing error with the AI response. Try again or switch models.",
-                )
-            ])
+            parsed = json.loads(cleaned.strip())
+        except:
+            return QuizResponse(questions=[])
 
         questions = []
         for q in parsed.get("questions", []):
             options = q.get("options", [])
-            # Ensure exactly 4 options
             while len(options) < 4:
-                options.append("(No option provided)")
-            options = options[:4]
-
+                options.append("(No option)")
             questions.append(QuizQuestion(
-                question=q.get("question", "Question not generated"),
-                options=options,
+                question=q.get("question", "Question"),
+                options=options[:4],
                 correct_index=min(q.get("correct_index", 0), 3),
-                explanation=q.get("explanation", "No explanation provided."),
+                explanation=q.get("explanation", "None"),
             ))
-
         return QuizResponse(questions=questions)
-
     except Exception as err:
-        print(f"[Error] Quiz error: {err}")
         raise HTTPException(status_code=500, detail=str(err))
 
-
 @app.post("/api/upload")
-async def upload_document(file: UploadFile = File(...)):
-    """Upload a document, save to documents folder, and index into ChromaDB."""
-    if not os.path.exists(Config.DOCS_DIR):
-        os.makedirs(Config.DOCS_DIR)
+async def upload_document(user_id: str = Form("global"), file: UploadFile = File(...)):
+    user_docs_dir = os.path.join(Config.DOCS_DIR, user_id)
+    if not os.path.exists(user_docs_dir):
+        os.makedirs(user_docs_dir)
 
-    filepath = os.path.join(Config.DOCS_DIR, file.filename)
-
+    filepath = os.path.join(user_docs_dir, file.filename)
     try:
         content = await file.read()
         with open(filepath, "wb") as f:
             f.write(content)
-        print(f"[File] Saved uploaded file: {filepath}")
 
-        # Index into ChromaDB
-        ingest_single_file(filepath)
+        paragraphs = []
+        pages = 1
+        if file.filename.lower().endswith(".pdf"):
+            loader = PyPDFLoader(filepath)
+            docs = loader.load()
+            pages = len(docs)
+            for doc in docs:
+                paragraphs.extend(doc.page_content.split("\n\n"))
+        elif file.filename.lower().endswith(".txt"):
+            loader = TextLoader(filepath)
+            docs = loader.load()
+            for doc in docs:
+                paragraphs.extend(doc.page_content.split("\n\n"))
 
-        return {"success": True, "filename": file.filename, "message": f"Indexed {file.filename} into vector store."}
+        paragraphs = [p.strip() for p in paragraphs if len(p.strip()) > 0]
 
+        ingest_single_file(filepath, user_id)
+
+        return {
+            "success": True,
+            "filename": file.filename,
+            "message": f"Indexed {file.filename}.",
+            "pages": pages,
+            "paragraphs": paragraphs
+        }
     except Exception as err:
-        print(f"[Error] Upload error: {err}")
         raise HTTPException(status_code=500, detail=str(err))
-
 
 @app.post("/api/sync")
-def sync_documents():
-    """Re-index all documents in the documents folder."""
+def sync_documents(user_id: str = "global"):
     try:
-        rebuild_vector_store()
-        return {"success": True, "message": "Vector store rebuilt from documents folder."}
+        rebuild_vector_store(user_id)
+        return {"success": True, "message": "Rebuilt from documents folder."}
     except Exception as err:
-        print(f"[Error] Sync error: {err}")
         raise HTTPException(status_code=500, detail=str(err))
 
-
 @app.get("/api/documents")
-def list_documents():
-    """List all documents currently in the documents folder."""
-    if not os.path.exists(Config.DOCS_DIR):
+def list_documents(user_id: str = "global"):
+    user_docs_dir = os.path.join(Config.DOCS_DIR, user_id)
+    if not os.path.exists(user_docs_dir):
         return {"documents": []}
 
     docs = []
-    for filename in os.listdir(Config.DOCS_DIR):
-        filepath = os.path.join(Config.DOCS_DIR, filename)
+    for filename in os.listdir(user_docs_dir):
+        filepath = os.path.join(user_docs_dir, filename)
         if os.path.isfile(filepath) and (filename.lower().endswith(".pdf") or filename.lower().endswith(".txt")):
-            docs.append(DocumentInfo(
-                name=filename,
-                size_bytes=os.path.getsize(filepath),
-            ))
+            docs.append(DocumentInfo(name=filename, size_bytes=os.path.getsize(filepath)))
 
     return {"documents": docs}
 
+@app.post("/api/search_web_pdf")
+def search_web_pdf(request: SearchWebRequest):
+    import urllib.request
+    import xml.etree.ElementTree as ET
+    import re
+    
+    query_encoded = urllib.parse.quote(request.query)
+    api_url = f"http://export.arxiv.org/api/query?search_query=all:{query_encoded}&start=0&max_results=1"
+    
+    try:
+        response = urllib.request.urlopen(api_url)
+        xml_data = response.read()
+        root = ET.fromstring(xml_data)
+        ns = {'atom': 'http://www.w3.org/2005/Atom'}
+        entry = root.find("atom:entry", ns)
+        
+        if not entry:
+            raise HTTPException(status_code=404, detail="No paper found for query.")
+            
+        title = entry.find("atom:title", ns).text.strip()
+        pdf_url = None
+        for link in entry.findall("atom:link", ns):
+            if link.attrib.get("title") == "pdf":
+                pdf_url = link.attrib.get("href")
+                break
+                
+        if not pdf_url:
+            raise HTTPException(status_code=404, detail="No PDF link found in ArXiv result.")
+            
+        if not pdf_url.endswith(".pdf"):
+            pdf_url += ".pdf"
+            
+        filename = re.sub(r'[\\/*?:"<>|]', "", title)[:100] + ".pdf"
+        
+        user_docs_dir = os.path.join(Config.DOCS_DIR, request.user_id)
+        if not os.path.exists(user_docs_dir):
+            os.makedirs(user_docs_dir)
+            
+        filepath = os.path.join(user_docs_dir, filename)
+        
+        req = urllib.request.Request(pdf_url, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req) as response_pdf, open(filepath, 'wb') as out_file:
+            out_file.write(response_pdf.read())
+            
+        # Parse and index
+        paragraphs = []
+        pages = 1
+        loader = PyPDFLoader(filepath)
+        docs = loader.load()
+        pages = len(docs)
+        for doc in docs:
+            paragraphs.extend(doc.page_content.split("\n\n"))
+            
+        paragraphs = [p.strip() for p in paragraphs if len(p.strip()) > 0]
+        ingest_single_file(filepath, request.user_id)
+        
+        return {
+            "success": True,
+            "filename": filename,
+            "message": "Downloaded from ArXiv and indexed.",
+            "pages": pages,
+            "paragraphs": paragraphs
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
-    # pyrefly: ignore [missing-import]
     import uvicorn
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)

@@ -8,37 +8,21 @@
  * This file is a thin TanStack Router wrapper.
  */
 
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { MainPage } from "@/pages/MainPage";
-import { useAuth } from "@/hooks/useAuth";
-import { useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 
 function MainPageWrapper() {
-  const { session, isLoading } = useAuth();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!isLoading && !session) {
-      router.navigate({ to: "/login" });
-    }
-  }, [session, isLoading, router]);
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-foreground">Loading...</div>
-      </div>
-    );
-  }
-
-  if (!session) {
-    return null;
-  }
-
   return <MainPage />;
 }
 
 export const Route = createFileRoute("/")({
+  beforeLoad: async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      throw redirect({ to: "/login" });
+    }
+  },
   head: () => ({
     meta: [
       { title: "TextStream — Interactive Study Space" },

@@ -165,7 +165,7 @@ const getPdfParagraphs = (doc: { id: string; name: string; paragraphs?: string[]
 
 export function Workspace() {
   const navigate = useNavigate();
-  const { user, profile } = useAuth();
+  const { user, profile, session } = useAuth();
   const {
     documents,
     activeDocuments,
@@ -233,10 +233,12 @@ export function Workspace() {
     try {
       const formData = new FormData();
       formData.append("file", file);
-      formData.append("user_id", user?.id || "global");
 
       const response = await fetch("http://localhost:8000/api/upload", {
         method: "POST",
+        headers: {
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
         body: formData,
       });
 
@@ -284,9 +286,10 @@ export function Workspace() {
       const response = await fetch("http://localhost:8000/api/search_web_pdf", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
         },
-        body: JSON.stringify({ query, user_id: user?.id || "global" }),
+        body: JSON.stringify({ query }),
       });
 
       if (!response.ok) {
@@ -506,12 +509,12 @@ export function Workspace() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
         },
         body: JSON.stringify({
           question: userQuery,
           model: currentModel,
           document_names: activeDocNames,
-          user_id: user?.id || "global",
           user_name: profile?.name || user?.user_metadata?.full_name || undefined,
           user_age: profile?.age || undefined,
           user_gender: profile?.gender || undefined,
@@ -561,10 +564,10 @@ export function Workspace() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
         },
         body: JSON.stringify({
           document_names: activeDocNames,
-          user_id: user?.id || "global",
           model: currentModel,
         }),
       });
@@ -603,10 +606,10 @@ export function Workspace() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
         },
         body: JSON.stringify({
           document_names: activeDocNames,
-          user_id: user?.id || "global",
           model: currentModel,
           question_count: qCount,
           difficulty: difficulty

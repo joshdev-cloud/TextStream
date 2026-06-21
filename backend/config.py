@@ -8,6 +8,8 @@ class Config:
     # API Keys
     GROQ_API_KEY = os.getenv("GROQ_API_KEY")
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+    SUPABASE_URL = os.getenv("VITE_SUPABASE_URL")
+    SUPABASE_ANON_KEY = os.getenv("VITE_SUPABASE_ANON_KEY")
     
     # Text Chunking Parameters
     CHUNK_SIZE = 600       

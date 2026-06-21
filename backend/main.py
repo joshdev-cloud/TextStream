@@ -1,8 +1,9 @@
 import os
 import json
 import shutil
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
+from supabase import create_client, Client
 from pydantic import BaseModel
 from typing import List, Optional
 
@@ -21,9 +22,27 @@ from fastapi.staticfiles import StaticFiles
 
 app = FastAPI(title="TextStream API Backend", version="2.0")
 
+supabase: Client | None = None
+if Config.SUPABASE_URL and Config.SUPABASE_ANON_KEY:
+    supabase = create_client(Config.SUPABASE_URL, Config.SUPABASE_ANON_KEY)
+
+def get_current_user(authorization: str = Header(None)) -> str:
+    if not supabase:
+        return "global"
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid token")
+    token = authorization.split(" ")[1]
+    try:
+        user_resp = supabase.auth.get_user(token)
+        if not user_resp or not user_resp.user:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        return user_resp.user.id
+    except Exception as e:
+        raise HTTPException(status_code=401, detail="Could not validate credentials")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "https://textstream.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -45,7 +64,6 @@ class ChatRequest(BaseModel):
     question: str
     model: str = "velocity"
     document_names: List[str] = []
-    user_id: str = "global"
     user_name: Optional[str] = None
     user_age: Optional[int] = None
     user_gender: Optional[str] = None
@@ -61,7 +79,6 @@ class ChatResponse(BaseModel):
 class SummarizeRequest(BaseModel):
     document_names: List[str] = []
     model: str = "velocity"
-    user_id: str = "global"
 
 class SummarizeResponse(BaseModel):
     takeaways: List[str]
@@ -73,7 +90,6 @@ class QuizRequest(BaseModel):
     model: str = "velocity"
     question_count: int = 5
     difficulty: int = 50
-    user_id: str = "global"
 
 class QuizQuestion(BaseModel):
     question: str
@@ -90,7 +106,6 @@ class DocumentInfo(BaseModel):
 
 class SearchWebRequest(BaseModel):
     query: str
-    user_id: str = "global"
 
 # ──────────────────────────── Helpers ────────────────────────────
 
@@ -252,8 +267,8 @@ async def startup_event():
     get_vector_store("global")
 
 @app.post("/api/chat", response_model=ChatResponse)
-def chat_with_documents(request: ChatRequest):
-    retriever = build_filtered_retriever(request.document_names, request.user_id)
+def chat_with_documents(request: ChatRequest, user_id: str = Depends(get_current_user)):
+    retriever = build_filtered_retriever(request.document_names, user_id)
     if retriever is None:
         raise HTTPException(status_code=400, detail="No documents indexed.")
 
@@ -306,8 +321,8 @@ def chat_with_documents(request: ChatRequest):
         raise HTTPException(status_code=500, detail=str(err))
 
 @app.post("/api/summarize", response_model=SummarizeResponse)
-def summarize_documents(request: SummarizeRequest):
-    retriever = build_filtered_retriever(request.document_names, request.user_id, k=12)
+def summarize_documents(request: SummarizeRequest, user_id: str = Depends(get_current_user)):
+    retriever = build_filtered_retriever(request.document_names, user_id, k=12)
     if retriever is None:
         raise HTTPException(status_code=400, detail="No documents indexed.")
 
@@ -356,8 +371,8 @@ def summarize_documents(request: SummarizeRequest):
         raise HTTPException(status_code=500, detail=str(err))
 
 @app.post("/api/quiz", response_model=QuizResponse)
-def generate_quiz(request: QuizRequest):
-    retriever = build_filtered_retriever(request.document_names, request.user_id, k=15)
+def generate_quiz(request: QuizRequest, user_id: str = Depends(get_current_user)):
+    retriever = build_filtered_retriever(request.document_names, user_id, k=15)
     if retriever is None:
         raise HTTPException(status_code=400, detail="No documents indexed.")
 
@@ -419,12 +434,16 @@ def generate_quiz(request: QuizRequest):
         raise HTTPException(status_code=500, detail=str(err))
 
 @app.post("/api/upload")
-async def upload_document(user_id: str = Form("global"), file: UploadFile = File(...)):
+async def upload_document(file: UploadFile = File(...), user_id: str = Depends(get_current_user)):
     user_docs_dir = os.path.join(Config.DOCS_DIR, user_id)
     if not os.path.exists(user_docs_dir):
         os.makedirs(user_docs_dir)
 
-    filepath = os.path.join(user_docs_dir, file.filename)
+    safe_filename = os.path.basename(file.filename)
+    if not safe_filename.lower().endswith((".pdf", ".txt")):
+        raise HTTPException(status_code=400, detail="Invalid file type. Only PDF and TXT allowed.")
+
+    filepath = os.path.join(user_docs_dir, safe_filename)
     try:
         content = await file.read()
         with open(filepath, "wb") as f:
@@ -432,13 +451,13 @@ async def upload_document(user_id: str = Form("global"), file: UploadFile = File
 
         paragraphs = []
         pages = 1
-        if file.filename.lower().endswith(".pdf"):
+        if safe_filename.lower().endswith(".pdf"):
             loader = PyPDFLoader(filepath)
             docs = loader.load()
             pages = len(docs)
             for doc in docs:
                 paragraphs.extend(doc.page_content.split("\n\n"))
-        elif file.filename.lower().endswith(".txt"):
+        elif safe_filename.lower().endswith(".txt"):
             loader = TextLoader(filepath)
             docs = loader.load()
             for doc in docs:
@@ -450,8 +469,8 @@ async def upload_document(user_id: str = Form("global"), file: UploadFile = File
 
         return {
             "success": True,
-            "filename": file.filename,
-            "message": f"Indexed {file.filename}.",
+            "filename": safe_filename,
+            "message": f"Indexed {safe_filename}.",
             "pages": pages,
             "paragraphs": paragraphs
         }
@@ -481,7 +500,7 @@ def list_documents(user_id: str = "global"):
     return {"documents": docs}
 
 @app.post("/api/search_web_pdf")
-def search_web_pdf(request: SearchWebRequest):
+def search_web_pdf(request: SearchWebRequest, user_id: str = Depends(get_current_user)):
     import urllib.request
     import xml.etree.ElementTree as ET
     import re
@@ -514,7 +533,7 @@ def search_web_pdf(request: SearchWebRequest):
             
         filename = re.sub(r'[\\/*?:"<>|]', "", title)[:100] + ".pdf"
         
-        user_docs_dir = os.path.join(Config.DOCS_DIR, request.user_id)
+        user_docs_dir = os.path.join(Config.DOCS_DIR, user_id)
         if not os.path.exists(user_docs_dir):
             os.makedirs(user_docs_dir)
             
@@ -534,7 +553,7 @@ def search_web_pdf(request: SearchWebRequest):
             paragraphs.extend(doc.page_content.split("\n\n"))
             
         paragraphs = [p.strip() for p in paragraphs if len(p.strip()) > 0]
-        ingest_single_file(filepath, request.user_id)
+        ingest_single_file(filepath, user_id)
         
         return {
             "success": True,

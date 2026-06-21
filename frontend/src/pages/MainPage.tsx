@@ -111,6 +111,7 @@ export function MainPage() {
     emptyTrash,
     renameSession,
     quizzesTaken,
+    toggleGlobalVault,
   } = useDocumentManager();
   
   const { user, profile } = useAuth();
@@ -429,10 +430,7 @@ export function MainPage() {
 
                     <div className="mt-4 flex items-center gap-2 flex-wrap">
                       <button
-                        onClick={() => {
-                          const { toggleGlobalVault } = useDocumentManager.getState();
-                          toggleGlobalVault(true);
-                        }}
+                        onClick={() => toggleGlobalVault(true)}
                         className="glass rounded-2xl px-4 py-2 border border-border/50 text-xs font-semibold hover:bg-secondary/45 transition flex items-center gap-2"
                       >
                         <BookOpen className="size-3.5 text-lavender" />

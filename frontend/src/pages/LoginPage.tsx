@@ -4,6 +4,8 @@ import { useRouter } from "@tanstack/react-router";
 import { SplashScreen } from "@/components/ui/SplashScreen";
 import { TextStreamLogo } from "@/components/ui/TextStreamLogo";
 import Antigravity from "@/components/ui/Antigravity";
+import { Sun, Moon } from "lucide-react";
+import { useDocumentStore } from "@/store/documentStore";
 
 type View = "signin" | "signup";
 
@@ -13,6 +15,8 @@ export function LoginPage() {
   const [view, setView] = useState<View>("signin");
 
   const router = useRouter();
+  const { state, dispatch } = useDocumentStore();
+  const isLight = state.theme === "light";
 
   const handleSplashDone = useCallback(() => {
     setShowSplash(false);
@@ -23,27 +27,37 @@ export function LoginPage() {
     <>
       {showSplash && <SplashScreen onComplete={handleSplashDone} />}
 
+      <div className="fixed top-6 right-6 z-50">
+        <button
+          onClick={() => dispatch({ type: "TOGGLE_THEME" })}
+          className="p-3 rounded-full glass-strong hover:bg-secondary/80 transition-all text-foreground border border-border/50 shadow-sm hover:scale-105 active:scale-95 cursor-pointer"
+          aria-label="Toggle theme"
+        >
+          {isLight ? <Sun className="w-5 h-5 text-amber-500" /> : <Moon className="w-5 h-5 text-lavender" />}
+        </button>
+      </div>
+
       {/* Background - Antigravity + Original Canvas Theme */}
-      <div className="fixed inset-0 pointer-events-none z-0 bg-canvas">
-        <div className="absolute inset-0 opacity-40 mix-blend-screen">
+      <div className="fixed inset-0 pointer-events-none z-0 bg-canvas overflow-hidden">
+        <div className="absolute inset-0 opacity-[0.15] dark:opacity-30">
           <Suspense fallback={null}>
             <Antigravity
-              count={300}
-              magnetRadius={6}
-              ringRadius={7}
-              waveSpeed={0.4}
+              count={80}
+              magnetRadius={8}
+              ringRadius={6}
+              waveSpeed={0.3}
               waveAmplitude={1}
               particleSize={1.5}
-              lerpSpeed={0.05}
+              lerpSpeed={0.04}
               color={'#FF9FFC'}
               autoAnimate={true}
               particleVariance={1}
             />
           </Suspense>
         </div>
-        {/* Subtle radial beams */}
-        <div className="absolute top-[-30%] left-[-10%] w-[80%] h-[80%] bg-amber-glow/10 blur-[120px] rounded-full mix-blend-screen pointer-events-none" />
-        <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-lavender/10 blur-[120px] rounded-full mix-blend-screen pointer-events-none" />
+        {/* Subtle radial beams - Optimized for performance without mix-blend */}
+        <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-amber-glow/5 dark:bg-amber-glow/10 blur-[80px] rounded-full pointer-events-none opacity-50" />
+        <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-lavender/5 dark:bg-lavender/10 blur-[80px] rounded-full pointer-events-none opacity-50" />
       </div>
 
       <div
@@ -135,7 +149,7 @@ function SignInView({ onSwitchView, router }: { onSwitchView: () => void; router
         <button
           onClick={handleGoogleLogin}
           disabled={isLoading}
-          className="w-full flex items-center justify-center gap-3 px-4 py-3.5 rounded-2xl bg-white hover:bg-gray-100 text-black text-sm font-bold transition-all duration-200 disabled:opacity-50 hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow"
+          className="w-full flex items-center justify-center gap-3 px-4 py-3.5 rounded-2xl bg-card hover:bg-secondary/50 border border-border text-foreground text-sm font-bold transition-all duration-200 disabled:opacity-50 hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-sm"
         >
           <svg viewBox="0 0 24 24" className="w-5 h-5 flex-shrink-0">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -296,7 +310,7 @@ function SignUpView({ onSwitchView, router }: { onSwitchView: () => void; router
         <button
           onClick={handleGoogleLogin}
           disabled={isLoading}
-          className="w-full flex items-center justify-center gap-3 px-4 py-3.5 rounded-2xl bg-white hover:bg-gray-100 text-black text-sm font-bold transition-all duration-200 disabled:opacity-50 hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow"
+          className="w-full flex items-center justify-center gap-3 px-4 py-3.5 rounded-2xl bg-card hover:bg-secondary/50 border border-border text-foreground text-sm font-bold transition-all duration-200 disabled:opacity-50 hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-sm"
         >
           <svg viewBox="0 0 24 24" className="w-5 h-5 flex-shrink-0">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>

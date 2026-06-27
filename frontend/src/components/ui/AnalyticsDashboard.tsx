@@ -1,4 +1,4 @@
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, ComposedChart, Area, Line, CartesianGrid } from "recharts";
 import { Activity, TrendingUp } from "lucide-react";
 
 const studyData = [
@@ -11,12 +11,13 @@ const studyData = [
   { day: "Sun", hours: 3.5 },
 ];
 
-const examData = [
-  { exam: "Quiz 1", score: 65 },
-  { exam: "Quiz 2", score: 72 },
-  { exam: "Midterm", score: 85 },
-  { exam: "Quiz 3", score: 88 },
-  { exam: "Mock Final", score: 94 },
+const performanceData = [
+  { session: "S1", score: 65, average: 65 },
+  { session: "S2", score: 72, average: 68.5 },
+  { session: "S3", score: 85, average: 74 },
+  { session: "S4", score: 80, average: 75.5 },
+  { session: "S5", score: 88, average: 78 },
+  { session: "S6", score: 94, average: 80.6 },
 ];
 
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -24,9 +25,11 @@ const CustomTooltip = ({ active, payload, label }: any) => {
     return (
       <div className="glass px-3 py-2 rounded-xl border border-border/50 text-xs font-semibold shadow-xl">
         <p className="text-muted-foreground mb-1">{label}</p>
-        <p className="text-foreground">
-          {payload[0].value} {payload[0].name === "hours" ? "hrs" : "%"}
-        </p>
+        {payload.map((entry: any, index: number) => (
+          <p key={index} style={{ color: entry.color }}>
+            {entry.name === "hours" ? `${entry.value} hrs` : entry.name === "average" ? `Avg: ${entry.value}%` : `Score: ${entry.value}%`}
+          </p>
+        ))}
       </div>
     );
   }
@@ -35,7 +38,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 export function AnalyticsDashboard({ isNewUser }: { isNewUser?: boolean }) {
   const finalStudyData = isNewUser ? [] : studyData;
-  const finalExamData = isNewUser ? [] : examData;
+  const finalPerformanceData = isNewUser ? [] : performanceData;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6 animate-slide-up">
@@ -89,32 +92,44 @@ export function AnalyticsDashboard({ isNewUser }: { isNewUser?: boolean }) {
         </div>
       </div>
 
-      {/* Exam Scores Chart */}
-      <div className="glass rounded-3xl p-6 border border-border/40 relative overflow-hidden group">
+      {/* Performance Scores Chart */}
+      <div className="glass rounded-3xl p-6 border border-border/40 relative overflow-hidden group flex flex-col justify-between">
         <div className="absolute top-0 right-0 w-32 h-32 bg-mint/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/4 pointer-events-none transition group-hover:bg-mint/10" />
         
-        <div className="flex items-center gap-2 mb-6">
-          <div className="size-8 rounded-lg bg-mint/10 text-mint grid place-items-center">
-            <TrendingUp className="size-4" />
+        <div className="flex items-start justify-between mb-4 z-10">
+          <div className="flex items-center gap-2">
+            <div className="size-8 rounded-lg bg-mint/10 text-mint grid place-items-center">
+              <TrendingUp className="size-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-foreground">Performance Over Time</h3>
+              <p className="text-[10px] text-muted-foreground">Past scores and moving average</p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-sm font-bold text-foreground">Exam Performance Over Time</h3>
-            <p className="text-[10px] text-muted-foreground">Scores from your latest study sessions</p>
+          <div className="text-right">
+            <div className="text-xl font-bold text-mint">80.6%</div>
+            <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Overall Average</div>
           </div>
         </div>
 
-        <div className="h-48 w-full relative">
+        <div className="h-48 w-full relative z-10">
           {isNewUser && (
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-xl bg-canvas/30 backdrop-blur-[2px] border border-dashed border-border/50 animate-fade-in">
-              <p className="text-sm font-bold text-foreground">No quizzes taken</p>
-              <p className="text-[10px] text-muted-foreground mt-1">Try Exam Mode to generate your first score.</p>
+              <p className="text-sm font-bold text-foreground">No sessions completed</p>
+              <p className="text-[10px] text-muted-foreground mt-1">Start studying to generate your first score.</p>
             </div>
           )}
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={finalExamData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+            <ComposedChart data={finalPerformanceData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+              <defs>
+                <linearGradient id="scoreGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="var(--color-mint)" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="var(--color-mint)" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-border)" opacity={0.5} />
               <XAxis 
-                dataKey="exam" 
+                dataKey="session" 
                 axisLine={false} 
                 tickLine={false} 
                 tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }} 
@@ -127,6 +142,26 @@ export function AnalyticsDashboard({ isNewUser }: { isNewUser?: boolean }) {
                 domain={[40, 100]}
               />
               <Tooltip content={<CustomTooltip />} />
+              <Area 
+                type="monotone" 
+                dataKey="score" 
+                name="score"
+                stroke="none" 
+                fillOpacity={1} 
+                fill="url(#scoreGradient)" 
+                animationDuration={1500}
+              />
+              <Line 
+                type="monotone" 
+                dataKey="average" 
+                name="average"
+                stroke="var(--color-amber-glow)" 
+                strokeWidth={2}
+                strokeDasharray="4 4"
+                dot={false}
+                activeDot={false}
+                animationDuration={1500}
+              />
               <Line 
                 type="monotone" 
                 dataKey="score" 
@@ -137,7 +172,7 @@ export function AnalyticsDashboard({ isNewUser }: { isNewUser?: boolean }) {
                 activeDot={{ r: 6, fill: "var(--color-mint)", strokeWidth: 2, stroke: "var(--color-canvas)" }}
                 animationDuration={1500}
               />
-            </LineChart>
+            </ComposedChart>
           </ResponsiveContainer>
         </div>
       </div>

@@ -18,6 +18,13 @@ function MainPageWrapper() {
 
 export const Route = createFileRoute("/")({
   beforeLoad: async () => {
+    // Check if there's an OAuth callback in the URL (hash or query)
+    const isAuthCallback = window.location.hash.includes("access_token") || window.location.search.includes("code=");
+    
+    if (isAuthCallback) {
+      return;
+    }
+
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
       throw redirect({ to: "/login" });

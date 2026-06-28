@@ -174,6 +174,7 @@ def get_current_user(authorization: str = Header(None)) -> str:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "https://textstream.app"],
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1|192\.168\.[0-9]{1,3}\.[0-9]{1,3})(:[0-9]+)?",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -237,6 +238,10 @@ class DocumentInfo(BaseModel):
 
 class SearchWebRequest(BaseModel):
     query: str
+
+class IngestArxivRequest(BaseModel):
+    title: str
+    pdf_url: str
 
 # ──────────────────────────── Helpers ────────────────────────────
 
@@ -670,40 +675,58 @@ def list_documents(user_id: str = "global"):
 
     return {"documents": docs}
 
-def process_search_web_pdf_task(task_id: str, request: SearchWebRequest, user_id: str):
+@app.get("/api/search_arxiv")
+def search_arxiv(q: str):
     import urllib.request
     import xml.etree.ElementTree as ET
-    import re
     
-    query_encoded = urllib.parse.quote(request.query)
-    api_url = f"http://export.arxiv.org/api/query?search_query=all:{query_encoded}&start=0&max_results=1"
+    query_encoded = urllib.parse.quote(q)
+    api_url = f"http://export.arxiv.org/api/query?search_query=all:{query_encoded}&start=0&max_results=5"
     
     try:
         response = urllib.request.urlopen(api_url)
         xml_data = response.read()
         root = ET.fromstring(xml_data)
         ns = {'atom': 'http://www.w3.org/2005/Atom'}
-        entry = root.find("atom:entry", ns)
         
-        if not entry:
-            TASK_STORE[task_id] = {"status": "failed", "error": "No paper found for query."}
-            return
+        results = []
+        for entry in root.findall("atom:entry", ns):
+            title = entry.find("atom:title", ns).text.strip()
+            summary = entry.find("atom:summary", ns).text.strip()
             
-        title = entry.find("atom:title", ns).text.strip()
-        pdf_url = None
-        for link in entry.findall("atom:link", ns):
-            if link.attrib.get("title") == "pdf":
-                pdf_url = link.attrib.get("href")
-                break
+            authors = []
+            for author in entry.findall("atom:author", ns):
+                name = author.find("atom:name", ns).text.strip()
+                authors.append(name)
                 
-        if not pdf_url:
-            TASK_STORE[task_id] = {"status": "failed", "error": "No PDF link found in ArXiv result."}
-            return
+            pdf_url = None
+            for link in entry.findall("atom:link", ns):
+                if link.attrib.get("title") == "pdf":
+                    pdf_url = link.attrib.get("href")
+                    break
             
+            if pdf_url:
+                results.append({
+                    "title": title,
+                    "summary": summary,
+                    "authors": authors,
+                    "pdf_url": pdf_url
+                })
+        
+        return {"results": results}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+def process_ingest_arxiv_task(task_id: str, request: IngestArxivRequest, user_id: str):
+    import urllib.request
+    import re
+    
+    try:
+        pdf_url = request.pdf_url
         if not pdf_url.endswith(".pdf"):
             pdf_url += ".pdf"
             
-        filename = re.sub(r'[\\/*?:"<>|]', "", title)[:100] + ".pdf"
+        filename = re.sub(r'[\\/*?:"<>|]', "", request.title)[:100] + ".pdf"
         
         user_docs_dir = os.path.join(Config.DOCS_DIR, user_id)
         if not os.path.exists(user_docs_dir):
@@ -745,12 +768,12 @@ def process_search_web_pdf_task(task_id: str, request: SearchWebRequest, user_id
     except Exception as e:
         TASK_STORE[task_id] = {"status": "failed", "error": str(e)}
 
-@app.post("/api/search_web_pdf")
-async def search_web_pdf(request: SearchWebRequest, background_tasks: BackgroundTasks, user_id: str = Depends(get_current_user)):
+@app.post("/api/ingest_arxiv")
+async def ingest_arxiv(request: IngestArxivRequest, background_tasks: BackgroundTasks, user_id: str = Depends(get_current_user)):
     cleanup_tasks()
     task_id = str(uuid.uuid4())
     TASK_STORE[task_id] = {"status": "processing", "created_at": time.time()}
-    background_tasks.add_task(process_search_web_pdf_task, task_id, request, user_id)
+    background_tasks.add_task(process_ingest_arxiv_task, task_id, request, user_id)
     return JSONResponse(status_code=202, content={"task_id": task_id, "status": "processing"})
 
 if __name__ == "__main__":

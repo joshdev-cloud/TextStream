@@ -15,6 +15,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Virtuoso } from "react-virtuoso";
+import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import {
   Zap,
@@ -292,13 +293,13 @@ export function Workspace() {
       }
     } catch (err) {
       console.error(err);
-      alert("Failed to upload document");
+      toast.error(err instanceof Error ? err.message : "Failed to upload document. Please try again.");
     } finally {
       setIsUploading(false);
     }
   };
 
-  const handleWebSearch = async (query: string) => {
+  const handleWebIngest = async (title: string, pdf_url: string) => {
     if (documents.length >= 50) {
       setShowLimitModal(true);
       return;
@@ -310,17 +311,17 @@ export function Workspace() {
     }
     setIsUploading(true);
     try {
-      const response = await fetch("http://localhost:8000/api/search_web_pdf", {
+      const response = await fetch("http://localhost:8000/api/ingest_arxiv", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
         },
-        body: JSON.stringify({ query }),
+        body: JSON.stringify({ title, pdf_url }),
       });
 
       if (!response.ok) {
-        throw new Error("Web search failed");
+        throw new Error("Ingest failed");
       }
 
       const initResult = await response.json();
@@ -346,7 +347,7 @@ export function Workspace() {
       }
     } catch (err) {
       console.error(err);
-      throw err; // allow WebSearchModal to catch and alert
+      throw err; 
     } finally {
       setIsUploading(false);
     }
@@ -402,7 +403,9 @@ export function Workspace() {
 
   // Run the focus timer
   useEffect(() => {
+    let sessionStart = Date.now();
     if (!isPaused) {
+      sessionStart = Date.now();
       timerRef.current = setInterval(() => {
         setElapsedSeconds((prev) => {
           const next = prev + 1;
@@ -417,6 +420,18 @@ export function Workspace() {
     }
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
+      if (!isPaused && typeof window !== "undefined") {
+        const deltaSeconds = Math.round((Date.now() - sessionStart) / 1000);
+        if (deltaSeconds > 0) {
+          const today = new Date().toISOString().split('T')[0];
+          try {
+            const dailyDataStr = localStorage.getItem("textstream_daily_engagement");
+            const dailyData = dailyDataStr ? JSON.parse(dailyDataStr) : {};
+            dailyData[today] = (dailyData[today] || 0) + deltaSeconds;
+            localStorage.setItem("textstream_daily_engagement", JSON.stringify(dailyData));
+          } catch(e) {}
+        }
+      }
     };
   }, [isPaused]);
 
@@ -728,7 +743,7 @@ export function Workspace() {
       }
     } catch (error) {
       console.error("Local file upload failed:", error);
-      alert("Failed to upload document");
+      toast.error(error instanceof Error ? error.message : "Failed to upload document. Please try again.");
     } finally {
       setIsUploading(false);
     }
@@ -947,7 +962,7 @@ export function Workspace() {
                   <UploadMenu
                     variant="workspace"
                     onLocalUpload={handleWorkspaceUpload}
-                    onWebSearch={handleWebSearch}
+                    onWebIngest={handleWebIngest}
                     isUploading={isUploading || workMode === "summarize"}
                   />
                   <button

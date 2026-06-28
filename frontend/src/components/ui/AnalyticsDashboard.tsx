@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, ComposedChart, Area, Line, CartesianGrid } from "recharts";
 import { Activity, TrendingUp } from "lucide-react";
 
@@ -37,7 +38,36 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export function AnalyticsDashboard({ isNewUser }: { isNewUser?: boolean }) {
-  const finalStudyData = isNewUser ? [] : studyData;
+  const [actualStudyData, setActualStudyData] = useState<any[]>([]);
+  const [hasRealData, setHasRealData] = useState(false);
+  
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const storedStr = localStorage.getItem("textstream_daily_engagement");
+        const stored = storedStr ? JSON.parse(storedStr) : {};
+        const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        const newStudyData = [];
+        
+        let foundData = false;
+        for (let i = 6; i >= 0; i--) {
+          const d = new Date();
+          d.setDate(d.getDate() - i);
+          const dateStr = d.toISOString().split('T')[0];
+          const dayName = daysOfWeek[d.getDay()];
+          const seconds = stored[dateStr] || 0;
+          const hours = Math.round((seconds / 3600) * 10) / 10;
+          if (hours > 0) foundData = true;
+          newStudyData.push({ day: dayName, hours });
+        }
+        
+        setActualStudyData(newStudyData);
+        setHasRealData(foundData);
+      } catch(e) {}
+    }
+  }, []);
+
+  const finalStudyData = isNewUser ? [] : actualStudyData;
   const finalPerformanceData = isNewUser ? [] : performanceData;
 
   return (
@@ -58,7 +88,7 @@ export function AnalyticsDashboard({ isNewUser }: { isNewUser?: boolean }) {
         </div>
 
         <div className="h-48 w-full relative">
-          {isNewUser && (
+          {(isNewUser || !hasRealData) && (
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-xl bg-canvas/30 backdrop-blur-[2px] border border-dashed border-border/50 animate-fade-in">
               <p className="text-sm font-bold text-foreground">No data yet</p>
               <p className="text-[10px] text-muted-foreground mt-1">Start your first study session to track progress.</p>

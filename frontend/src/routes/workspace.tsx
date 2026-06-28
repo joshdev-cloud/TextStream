@@ -18,6 +18,10 @@ function WorkspaceWrapper() {
 
 export const Route = createFileRoute("/workspace")({
   beforeLoad: async () => {
+    if (typeof window === "undefined") {
+      return; // Skip auth check on server since Supabase uses local storage
+    }
+
     // Check if there's an OAuth callback in the URL (hash or query)
     const isAuthCallback = window.location.hash.includes("access_token") || window.location.search.includes("code=");
     

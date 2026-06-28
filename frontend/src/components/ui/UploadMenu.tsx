@@ -9,11 +9,11 @@ export type UploadVariant = "dashboard" | "workspace" | "vault";
 interface UploadMenuProps {
   variant: UploadVariant;
   onLocalUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onWebSearch?: (query: string) => Promise<void>;
+  onWebIngest?: (title: string, pdfUrl: string) => Promise<void>;
   isUploading?: boolean;
 }
 
-export function UploadMenu({ variant, onLocalUpload, onWebSearch, isUploading }: UploadMenuProps) {
+export function UploadMenu({ variant, onLocalUpload, onWebIngest, isUploading }: UploadMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [showDriveModal, setShowDriveModal] = useState(false);
   const [showWebSearchModal, setShowWebSearchModal] = useState(false);
@@ -195,11 +195,7 @@ export function UploadMenu({ variant, onLocalUpload, onWebSearch, isUploading }:
       <WebSearchModal
         isOpen={showWebSearchModal}
         onClose={() => setShowWebSearchModal(false)}
-        onSearch={async (query) => {
-          if (onWebSearch) {
-            await onWebSearch(query);
-          }
-        }}
+        onIngest={onWebIngest!}
       />
     </>
   );

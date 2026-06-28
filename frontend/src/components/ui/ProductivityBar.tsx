@@ -37,7 +37,9 @@ export function ProductivityBar() {
 
   // Timer interval logic
   useEffect(() => {
+    let sessionStart = Date.now();
     if (!isPaused) {
+      sessionStart = Date.now();
       timerRef.current = setInterval(() => {
         setElapsedSeconds((prev) => {
           const next = prev + 1;
@@ -53,6 +55,18 @@ export function ProductivityBar() {
 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
+      if (!isPaused && typeof window !== "undefined") {
+        const deltaSeconds = Math.round((Date.now() - sessionStart) / 1000);
+        if (deltaSeconds > 0) {
+          const today = new Date().toISOString().split('T')[0];
+          try {
+            const dailyDataStr = localStorage.getItem("textstream_daily_engagement");
+            const dailyData = dailyDataStr ? JSON.parse(dailyDataStr) : {};
+            dailyData[today] = (dailyData[today] || 0) + deltaSeconds;
+            localStorage.setItem("textstream_daily_engagement", JSON.stringify(dailyData));
+          } catch(e) {}
+        }
+      }
     };
   }, [isPaused]);
 

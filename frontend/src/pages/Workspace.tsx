@@ -163,6 +163,29 @@ const getPdfParagraphs = (doc: { id: string; name: string; paragraphs?: string[]
   ];
 };
 
+const pollTask = async (taskId: string) => {
+  let attempt = 0;
+  const maxTime = 120000;
+  const start = Date.now();
+  
+  while (Date.now() - start < maxTime) {
+    const res = await fetch(`http://localhost:8000/api/tasks/${taskId}`);
+    if (!res.ok) throw new Error("Task polling failed");
+    const data = await res.json();
+    
+    if (data.status === "completed") {
+      return data.result;
+    } else if (data.status === "failed") {
+      throw new Error(data.error || "Task failed on backend");
+    }
+    
+    attempt++;
+    const waitTime = attempt <= 5 ? 2000 : 5000;
+    await new Promise((resolve) => setTimeout(resolve, waitTime));
+  }
+  throw new Error("Task timed out after 120 seconds");
+};
+
 export function Workspace() {
   const navigate = useNavigate();
   const { user, profile, session } = useAuth();
@@ -246,7 +269,11 @@ export function Workspace() {
         throw new Error("Upload failed");
       }
 
-      const result = await response.json();
+      const initResult = await response.json();
+      let result = initResult;
+      if (initResult.status === "processing" && initResult.task_id) {
+        result = await pollTask(initResult.task_id);
+      }
 
       if (result && result.success) {
         const frontendDoc: Document = {
@@ -296,7 +323,11 @@ export function Workspace() {
         throw new Error("Web search failed");
       }
 
-      const result = await response.json();
+      const initResult = await response.json();
+      let result = initResult;
+      if (initResult.status === "processing" && initResult.task_id) {
+        result = await pollTask(initResult.task_id);
+      }
 
       if (result && result.success) {
         const frontendDoc: Document = {
@@ -617,7 +648,11 @@ export function Workspace() {
       });
 
       if (response.ok) {
-        const data = await response.json();
+        const initResult = await response.json();
+        let data = initResult;
+        if (initResult.status === "processing" && initResult.task_id) {
+          data = await pollTask(initResult.task_id);
+        }
         setQuizQuestions(data.questions || []);
       } else {
         const errorData = await response.json().catch(() => ({ detail: "Unknown error" }));
@@ -672,7 +707,11 @@ export function Workspace() {
         throw new Error("Upload failed");
       }
 
-      const result = await response.json();
+      const initResult = await response.json();
+      let result = initResult;
+      if (initResult.status === "processing" && initResult.task_id) {
+        result = await pollTask(initResult.task_id);
+      }
 
       if (result && result.success) {
         const newDoc = {

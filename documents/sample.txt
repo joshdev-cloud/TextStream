@@ -1,0 +1,2 @@
+TextStream uses semantic proximity matching to find data across custom documents.
+It acts as a private notebook agent mimicking core elements of NotebookLM.

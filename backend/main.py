@@ -3,7 +3,9 @@ import json
 import shutil
 import time
 import collections
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Depends, Header, Request
+import re
+import uuid
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Depends, Header, Request, BackgroundTasks
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -27,15 +29,58 @@ from fastapi.staticfiles import StaticFiles
 
 app = FastAPI(title="TextStream API Backend", version="2.0")
 
-# ──────────────────────────── Security State ────────────────────────────
+# ──────────────────────────── Security State & Tasks ────────────────────────────
 RATE_LIMIT_STANDARD = 60
 RATE_LIMIT_STRICT = 10
 RATE_LIMIT_CHALLENGE = 20
 WINDOW_SIZE = 60
+PAYLOAD_WINDOW_SIZE = 900 # 15 minutes
+MAX_PAYLOAD_BYTES = 50 * 1024 * 1024 # 50 MB
 
-ip_requests_standard = collections.defaultdict(list)
-ip_requests_strict = collections.defaultdict(list)
-ip_requests_challenge = collections.defaultdict(list)
+BOT_USER_AGENTS = ["gptbot", "claudebot", "bytesspider", "ccbot"]
+
+JAILBREAK_PATTERN = re.compile(
+    r"\b(ignore\s+(all\s+)?previous\s+instructions|system\s+prompt\s+override|disregard\s+the\s+above)\b", 
+    re.IGNORECASE
+)
+
+class RateLimiterStore:
+    def __init__(self):
+        self.use_redis = os.getenv("USE_REDIS", "false").lower() == "true"
+        self.standard = collections.defaultdict(list)
+        self.strict = collections.defaultdict(list)
+        self.challenge = collections.defaultdict(list)
+        self.payload = collections.defaultdict(list)
+        
+    def check_rate_limit(self, store_type: str, client_ip: str, limit: int, current_time: float, window: int = WINDOW_SIZE):
+        store = getattr(self, store_type)
+        store[client_ip][:] = [t for t in store[client_ip] if current_time - t < window]
+        if len(store[client_ip]) >= limit:
+            return False
+        store[client_ip].append(current_time)
+        return True
+
+    def check_payload_limit(self, client_ip: str, payload_size: int, current_time: float):
+        self.payload[client_ip][:] = [(t, s) for t, s in self.payload[client_ip] if current_time - t < PAYLOAD_WINDOW_SIZE]
+        current_sum = sum(s for t, s in self.payload[client_ip])
+        if current_sum + payload_size > MAX_PAYLOAD_BYTES:
+            return False
+        self.payload[client_ip].append((current_time, payload_size))
+        return True
+
+rate_limiter = RateLimiterStore()
+
+TASK_STORE = {}
+
+def cleanup_tasks():
+    current_time = time.time()
+    keys_to_delete = [k for k, v in TASK_STORE.items() if current_time - v.get("created_at", current_time) > 3600]
+    for k in keys_to_delete:
+        del TASK_STORE[k]
+
+def detect_prompt_injection(text: str) -> bool:
+    if not text: return False
+    return bool(JAILBREAK_PATTERN.search(text))
 
 BOT_USER_AGENTS = ["gptbot", "claudebot", "bytesspider", "ccbot"]
 
@@ -50,50 +95,43 @@ class SecurityMiddleware(BaseHTTPMiddleware):
             if bot in user_agent:
                 return JSONResponse(status_code=403, content={"detail": "Access Denied: Automated bots are not allowed."})
                 
+        current_time = time.time()
+
         # 2. Payload Size Limit for /api/upload
         if path == "/api/upload":
             content_length = request.headers.get("content-length")
             if content_length:
-                if int(content_length) > 15 * 1024 * 1024:
+                size = int(content_length)
+                if size > 15 * 1024 * 1024:
                     return JSONResponse(status_code=413, content={"detail": "Payload Too Large: Maximum upload size is 15MB."})
+                if not rate_limiter.check_payload_limit(client_ip, size, current_time):
+                    return JSONResponse(status_code=429, content={"detail": "Too Many Requests: Payload size limit exceeded."})
         
-        current_time = time.time()
-        
-        # Helper to check rate limit
-        def check_rate_limit(req_list, limit):
-            req_list[:] = [t for t in req_list if current_time - t < WINDOW_SIZE]
-            if len(req_list) >= limit:
-                return False
-            req_list.append(current_time)
-            return True
-
         # 3. Rate Limiting
-        if path in ["/api/upload", "/api/quiz"]:
-            if not check_rate_limit(ip_requests_strict[client_ip], RATE_LIMIT_STRICT):
+        if path in ["/api/upload", "/api/quiz", "/api/search_web_pdf"]:
+            if not rate_limiter.check_rate_limit("strict", client_ip, RATE_LIMIT_STRICT, current_time):
                 return JSONResponse(status_code=429, content={"detail": "Too Many Requests: Strict rate limit exceeded."})
         else:
-            if not check_rate_limit(ip_requests_standard[client_ip], RATE_LIMIT_STANDARD):
+            if not rate_limiter.check_rate_limit("standard", client_ip, RATE_LIMIT_STANDARD, current_time):
                 return JSONResponse(status_code=429, content={"detail": "Too Many Requests: Standard rate limit exceeded."})
 
         # 4. Challenge suspicious traffic patterns on text-gen routes
         if path in ["/api/chat", "/api/summarize", "/api/quiz"]:
-            req_list_challenge = ip_requests_challenge[client_ip]
-            req_list_challenge[:] = [t for t in req_list_challenge if current_time - t < WINDOW_SIZE]
-            if len(req_list_challenge) >= RATE_LIMIT_CHALLENGE:
+            if not rate_limiter.check_rate_limit("challenge", client_ip, RATE_LIMIT_CHALLENGE, current_time):
                 return JSONResponse(
                     status_code=403, 
                     content={"challenge_required": True, "message": "Suspicious traffic detected."}
                 )
-            req_list_challenge.append(current_time)
 
         # 5. Process request
         response = await call_next(request)
         
         # 6. Downstream Security Headers
+        api_base = os.getenv("API_BASE_URL", "http://localhost:8000")
         response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains; preload"
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
-        response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; object-src 'none';"
+        response.headers["Content-Security-Policy"] = f"default-src 'self'; script-src 'self'; connect-src 'self' {api_base} https://api.openai.com https://api.anthropic.com; object-src 'none';"
         
         return response
 
@@ -359,8 +397,19 @@ async def startup_event():
     print("[System] Initializing TextStream Core Systems...")
     get_vector_store("global")
 
+@app.get("/api/tasks/{task_id}")
+def get_task_status(task_id: str):
+    cleanup_tasks()
+    task = TASK_STORE.get(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return task
+
 @app.post("/api/chat", response_model=ChatResponse)
 def chat_with_documents(request: ChatRequest, user_id: str = Depends(get_current_user)):
+    if detect_prompt_injection(request.question):
+        raise HTTPException(status_code=403, detail="Blocked: Potential prompt injection detected.")
+
     retriever = build_filtered_retriever(request.document_names, user_id)
     if retriever is None:
         raise HTTPException(status_code=400, detail="No documents indexed.")
@@ -463,39 +512,39 @@ def summarize_documents(request: SummarizeRequest, user_id: str = Depends(get_cu
     except Exception as err:
         raise HTTPException(status_code=500, detail=str(err))
 
-@app.post("/api/quiz", response_model=QuizResponse)
-def generate_quiz(request: QuizRequest, user_id: str = Depends(get_current_user)):
-    retriever = build_filtered_retriever(request.document_names, user_id, k=15)
-    if retriever is None:
-        raise HTTPException(status_code=400, detail="No documents indexed.")
-
-    llm = get_llm(request.model, temperature=0.7)
-    difficulty_label = "easy" if request.difficulty < 33 else "challenging" if request.difficulty < 66 else "very hard exam-level"
-
-    quiz_prompt = (
-        f"Create exactly {request.question_count} rigorous multiple-choice questions at {difficulty_label} difficulty.\n\n"
-        "You MUST respond with valid JSON:\n"
-        '{{\n'
-        '  "questions": [\n'
-        '    {{\n'
-        '      "question": "Text",\n'
-        '      "options": ["A", "B", "C", "D"],\n'
-        '      "correct_index": 0,\n'
-        '      "explanation": "Why correct"\n'
-        '    }}\n'
-        '  ]\n'
-        '}}\n\n'
-        "Document excerpts:\n{context}"
-    )
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", quiz_prompt),
-        ("human", f"Generate {request.question_count} quiz questions."),
-    ])
-
-    qa_chain = create_stuff_documents_chain(llm, prompt)
-    rag_chain = create_retrieval_chain(retriever, qa_chain)
-
+def process_quiz_task(task_id: str, request: QuizRequest, user_id: str):
     try:
+        retriever = build_filtered_retriever(request.document_names, user_id, k=15)
+        if retriever is None:
+            TASK_STORE[task_id] = {"status": "failed", "error": "No documents indexed."}
+            return
+
+        llm = get_llm(request.model, temperature=0.7)
+        difficulty_label = "easy" if request.difficulty < 33 else "challenging" if request.difficulty < 66 else "very hard exam-level"
+
+        quiz_prompt = (
+            f"Create exactly {request.question_count} rigorous multiple-choice questions at {difficulty_label} difficulty.\n\n"
+            "You MUST respond with valid JSON:\n"
+            '{{\n'
+            '  "questions": [\n'
+            '    {{\n'
+            '      "question": "Text",\n'
+            '      "options": ["A", "B", "C", "D"],\n'
+            '      "correct_index": 0,\n'
+            '      "explanation": "Why correct"\n'
+            '    }}\n'
+            '  ]\n'
+            '}}\n\n'
+            "Document excerpts:\n{context}"
+        )
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", quiz_prompt),
+            ("human", f"Generate {request.question_count} quiz questions."),
+        ])
+
+        qa_chain = create_stuff_documents_chain(llm, prompt)
+        rag_chain = create_retrieval_chain(retriever, qa_chain)
+
         query_text = " ".join(request.document_names) + " quiz concepts" if request.document_names else "quiz concepts"
         output = rag_chain.invoke({"input": query_text})
         raw_answer = output["answer"]
@@ -509,39 +558,35 @@ def generate_quiz(request: QuizRequest, user_id: str = Depends(get_current_user)
         try:
             parsed = json.loads(cleaned.strip())
         except:
-            return QuizResponse(questions=[])
+            TASK_STORE[task_id] = {"status": "completed", "result": {"questions": []}}
+            return
 
         questions = []
         for q in parsed.get("questions", []):
             options = q.get("options", [])
             while len(options) < 4:
                 options.append("(No option)")
-            questions.append(QuizQuestion(
-                question=q.get("question", "Question"),
-                options=options[:4],
-                correct_index=min(q.get("correct_index", 0), 3),
-                explanation=q.get("explanation", "None"),
-            ))
-        return QuizResponse(questions=questions)
+            questions.append({
+                "question": q.get("question", "Question"),
+                "options": options[:4],
+                "correct_index": min(q.get("correct_index", 0), 3),
+                "explanation": q.get("explanation", "None"),
+            })
+            
+        TASK_STORE[task_id] = {"status": "completed", "result": {"questions": questions}}
     except Exception as err:
-        raise HTTPException(status_code=500, detail=str(err))
+        TASK_STORE[task_id] = {"status": "failed", "error": str(err)}
 
-@app.post("/api/upload")
-async def upload_document(file: UploadFile = File(...), user_id: str = Depends(get_current_user)):
-    user_docs_dir = os.path.join(Config.DOCS_DIR, user_id)
-    if not os.path.exists(user_docs_dir):
-        os.makedirs(user_docs_dir)
+@app.post("/api/quiz")
+async def generate_quiz(request: QuizRequest, background_tasks: BackgroundTasks, user_id: str = Depends(get_current_user)):
+    cleanup_tasks()
+    task_id = str(uuid.uuid4())
+    TASK_STORE[task_id] = {"status": "processing", "created_at": time.time()}
+    background_tasks.add_task(process_quiz_task, task_id, request, user_id)
+    return JSONResponse(status_code=202, content={"task_id": task_id, "status": "processing"})
 
-    safe_filename = os.path.basename(file.filename)
-    if not safe_filename.lower().endswith((".pdf", ".txt")):
-        raise HTTPException(status_code=400, detail="Invalid file type. Only PDF and TXT allowed.")
-
-    filepath = os.path.join(user_docs_dir, safe_filename)
+def process_upload_task(task_id: str, filepath: str, safe_filename: str, user_id: str):
     try:
-        content = await file.read()
-        with open(filepath, "wb") as f:
-            f.write(content)
-
         paragraphs = []
         pages = 1
         if safe_filename.lower().endswith(".pdf"):
@@ -558,15 +603,48 @@ async def upload_document(file: UploadFile = File(...), user_id: str = Depends(g
 
         paragraphs = [p.strip() for p in paragraphs if len(p.strip()) > 0]
 
+        full_text = " ".join(paragraphs)
+        if detect_prompt_injection(full_text):
+            TASK_STORE[task_id] = {"status": "failed", "error": "Blocked: Payload contains prompt injection signatures."}
+            return
+
         ingest_single_file(filepath, user_id)
 
-        return {
-            "success": True,
-            "filename": safe_filename,
-            "message": f"Indexed {safe_filename}.",
-            "pages": pages,
-            "paragraphs": paragraphs
+        TASK_STORE[task_id] = {
+            "status": "completed", 
+            "result": {
+                "success": True,
+                "filename": safe_filename,
+                "message": f"Indexed {safe_filename}.",
+                "pages": pages,
+                "paragraphs": paragraphs
+            }
         }
+    except Exception as err:
+        TASK_STORE[task_id] = {"status": "failed", "error": str(err)}
+
+@app.post("/api/upload")
+async def upload_document(background_tasks: BackgroundTasks, file: UploadFile = File(...), user_id: str = Depends(get_current_user)):
+    cleanup_tasks()
+    user_docs_dir = os.path.join(Config.DOCS_DIR, user_id)
+    if not os.path.exists(user_docs_dir):
+        os.makedirs(user_docs_dir)
+
+    safe_filename = os.path.basename(file.filename)
+    if not safe_filename.lower().endswith((".pdf", ".txt")):
+        raise HTTPException(status_code=400, detail="Invalid file type. Only PDF and TXT allowed.")
+
+    filepath = os.path.join(user_docs_dir, safe_filename)
+    try:
+        content = await file.read()
+        with open(filepath, "wb") as f:
+            f.write(content)
+
+        task_id = str(uuid.uuid4())
+        TASK_STORE[task_id] = {"status": "processing", "created_at": time.time()}
+        background_tasks.add_task(process_upload_task, task_id, filepath, safe_filename, user_id)
+
+        return JSONResponse(status_code=202, content={"task_id": task_id, "status": "processing"})
     except Exception as err:
         raise HTTPException(status_code=500, detail=str(err))
 
@@ -592,8 +670,7 @@ def list_documents(user_id: str = "global"):
 
     return {"documents": docs}
 
-@app.post("/api/search_web_pdf")
-def search_web_pdf(request: SearchWebRequest, user_id: str = Depends(get_current_user)):
+def process_search_web_pdf_task(task_id: str, request: SearchWebRequest, user_id: str):
     import urllib.request
     import xml.etree.ElementTree as ET
     import re
@@ -609,7 +686,8 @@ def search_web_pdf(request: SearchWebRequest, user_id: str = Depends(get_current
         entry = root.find("atom:entry", ns)
         
         if not entry:
-            raise HTTPException(status_code=404, detail="No paper found for query.")
+            TASK_STORE[task_id] = {"status": "failed", "error": "No paper found for query."}
+            return
             
         title = entry.find("atom:title", ns).text.strip()
         pdf_url = None
@@ -619,7 +697,8 @@ def search_web_pdf(request: SearchWebRequest, user_id: str = Depends(get_current
                 break
                 
         if not pdf_url:
-            raise HTTPException(status_code=404, detail="No PDF link found in ArXiv result.")
+            TASK_STORE[task_id] = {"status": "failed", "error": "No PDF link found in ArXiv result."}
+            return
             
         if not pdf_url.endswith(".pdf"):
             pdf_url += ".pdf"
@@ -636,7 +715,6 @@ def search_web_pdf(request: SearchWebRequest, user_id: str = Depends(get_current
         with urllib.request.urlopen(req) as response_pdf, open(filepath, 'wb') as out_file:
             out_file.write(response_pdf.read())
             
-        # Parse and index
         paragraphs = []
         pages = 1
         loader = PyPDFLoader(filepath)
@@ -646,17 +724,34 @@ def search_web_pdf(request: SearchWebRequest, user_id: str = Depends(get_current
             paragraphs.extend(doc.page_content.split("\n\n"))
             
         paragraphs = [p.strip() for p in paragraphs if len(p.strip()) > 0]
+
+        full_text = " ".join(paragraphs)
+        if detect_prompt_injection(full_text):
+            TASK_STORE[task_id] = {"status": "failed", "error": "Blocked: Payload contains prompt injection signatures."}
+            return
+
         ingest_single_file(filepath, user_id)
         
-        return {
-            "success": True,
-            "filename": filename,
-            "message": "Downloaded from ArXiv and indexed.",
-            "pages": pages,
-            "paragraphs": paragraphs
+        TASK_STORE[task_id] = {
+            "status": "completed", 
+            "result": {
+                "success": True,
+                "filename": filename,
+                "message": "Downloaded from ArXiv and indexed.",
+                "pages": pages,
+                "paragraphs": paragraphs
+            }
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        TASK_STORE[task_id] = {"status": "failed", "error": str(e)}
+
+@app.post("/api/search_web_pdf")
+async def search_web_pdf(request: SearchWebRequest, background_tasks: BackgroundTasks, user_id: str = Depends(get_current_user)):
+    cleanup_tasks()
+    task_id = str(uuid.uuid4())
+    TASK_STORE[task_id] = {"status": "processing", "created_at": time.time()}
+    background_tasks.add_task(process_search_web_pdf_task, task_id, request, user_id)
+    return JSONResponse(status_code=202, content={"task_id": task_id, "status": "processing"})
 
 if __name__ == "__main__":
     import uvicorn

@@ -13,20 +13,17 @@ import { GlobalMenu } from "@/components/layout/GlobalMenu";
 import { TextStreamLogo } from "@/components/ui/TextStreamLogo";
 
 interface NavbarProps {
-  model?: ModelKey;
-  onModelClick?: () => void;
   /** Optional subtitle override */
   subtitle?: string;
 }
 
-export function Navbar({ model: propModel, onModelClick, subtitle: propSubtitle }: NavbarProps) {
+export function Navbar({ subtitle: propSubtitle }: NavbarProps) {
   const { currentModel, theme, toggleTheme, activeSession, toggleGlobalVault, endSession, setActiveSessionId } = useDocumentManager();
   const routerState = useRouterState();
 
   // Check if we are inside the active study workspace (/workspace)
   const isWorkspace = routerState.location.pathname === "/workspace";
   
-  const activeModel = propModel || currentModel;
   const subtitle = propSubtitle !== undefined ? propSubtitle : (isWorkspace && activeSession ? activeSession.title : undefined);
 
   return (
@@ -102,9 +99,7 @@ export function Navbar({ model: propModel, onModelClick, subtitle: propSubtitle 
           )}
         </nav>
 
-        {onModelClick && (
-          <ModelBadge model={activeModel} onClick={onModelClick} />
-        )}
+        <ModelBadge />
 
         <button
           onClick={toggleTheme}

@@ -462,7 +462,7 @@ export function Workspace() {
   if (!activeSession) {
     return (
       <div className="min-h-screen text-foreground bg-canvas">
-        <Navbar model={currentModel} onModelClick={() => setPopup("ai")} />
+        <Navbar />
         <MainContainer>
           <div className="glass rounded-3xl p-8 max-w-md mx-auto mt-20 text-center border border-border/45 animate-pop-in glow-amber">
             <ShieldAlert className="size-12 text-amber-glow mx-auto mb-4 animate-pulse" />
@@ -698,10 +698,7 @@ export function Workspace() {
   return (
     <div className="min-h-screen text-foreground animate-fade-in">
       {/* Top bar */}
-      <Navbar
-        model={currentModel}
-        onModelClick={() => setPopup("ai")}
-      />
+      <Navbar />
 
       {/* Main Container */}
       <MainContainer>
@@ -1099,17 +1096,7 @@ export function Workspace() {
         )}
       </MainContainer>
 
-      {/* AI Engine Popup (global overlay) */}
-      {popup === "ai" && (
-        <AiEnginePopup
-          current={currentModel}
-          onPick={(m) => {
-            setCurrentModel(m);
-            setPopup(null);
-          }}
-          onClose={() => setPopup(null)}
-        />
-      )}
+
 
       <StorageLimitModal
         isOpen={showLimitModal}
@@ -1131,61 +1118,6 @@ export function Workspace() {
 
 /* ──────────────────────────── Workspace Popup Components ──────────────────────────── */
 
-function AiEnginePopup({
-  current,
-  onPick,
-  onClose,
-}: {
-  current: ModelKey;
-  onPick: (m: ModelKey) => void;
-  onClose: () => void;
-}) {
-  return (
-    <PopupShell onClose={onClose} global>
-      <div className="glass-strong rounded-3xl p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="font-display text-xl font-bold">
-              Choose your AI Engine
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              Pick the brain that fits the task.
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="size-9 rounded-full glass grid place-items-center hover:bg-secondary/60"
-          >
-            <X className="size-4" />
-          </button>
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-4">
-          <EngineCard
-            active={current === "velocity"}
-            onClick={() => onPick("velocity")}
-            icon={<Zap className="size-6 text-white" />}
-            iconBg="bg-lavender glow-lavender"
-            title="The Velocity Core"
-            sub="Groq / Llama"
-            body="Optimized for rapid fire flashcard reviews and instant summary generation."
-            accent="lavender"
-          />
-          <EngineCard
-            active={current === "deep"}
-            onClick={() => onPick("deep")}
-            icon={<Compass className="size-6 text-primary-foreground" />}
-            iconBg="bg-amber-glow glow-amber"
-            title="The Deep Thinker"
-            sub="Gemini Flash"
-            body="Optimized for cross-referencing massive textbooks and complex engineering problem-solving."
-            accent="amber"
-          />
-        </div>
-      </div>
-    </PopupShell>
-  );
-}
 
 function ToolsMenuPopup({
   onClose,

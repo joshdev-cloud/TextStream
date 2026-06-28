@@ -133,8 +133,8 @@ export function MainPage() {
     setTimeout(() => setDashVisible(true), 50);
   }, []);
 
-  const [showAiPopup, setShowAiPopup] = useState(false);
   const [showTrashPopup, setShowTrashPopup] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState<string | null>(null);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [newSessionTitle, setNewSessionTitle] = useState("");
   const [newSessionMode, setNewSessionMode] = useState<StudyMode>("RESEARCH MODE");
@@ -253,10 +253,7 @@ export function MainPage() {
           transition: "opacity 0.5s ease-out",
         }}
       >
-      <Navbar
-        model={currentModel}
-        onModelClick={() => setShowAiPopup(!showAiPopup)}
-      />
+      <Navbar />
 
       <MainContainer>
         {/* Productivity Bar (Dashboard Only) */}
@@ -607,60 +604,7 @@ export function MainPage() {
         </div>
       )}
 
-      {/* AI popup helper */}
-      {showAiPopup && (
-        <div className="fixed inset-0 bg-canvas/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="glass-strong rounded-3xl p-6 max-w-md w-full relative">
-            <button
-              onClick={() => setShowAiPopup(false)}
-              className="absolute top-4 right-4 size-8 rounded-full glass grid place-items-center hover:bg-secondary"
-            >
-              <X className="size-4" />
-            </button>
-            <h3 className="font-display font-extrabold text-lg mb-2">AI Model Preferences</h3>
-            <p className="text-xs text-muted-foreground mb-4">
-              Select the active model to power your tutoring, quizzes, and summaries.
-            </p>
-            <div className="space-y-2">
-              <button
-                onClick={() => {
-                  setCurrentModel("velocity");
-                  setShowAiPopup(false);
-                }}
-                className={`w-full text-left rounded-2xl p-4 transition border ${currentModel === "velocity"
-                  ? "bg-lavender/10 border-lavender glow-lavender text-foreground"
-                  : "glass border-transparent hover:bg-secondary/40 text-muted-foreground"
-                  }`}
-              >
-                <p className="text-sm font-bold flex items-center gap-1.5">
-                  <Zap className="size-4 text-lavender" /> Velocity Core
-                </p>
-                <p className="text-[10px] mt-1 leading-relaxed">
-                  Llama 3 + Groq. Instant feedback, rapid flashcard reviews.
-                </p>
-              </button>
 
-              <button
-                onClick={() => {
-                  setCurrentModel("deep");
-                  setShowAiPopup(false);
-                }}
-                className={`w-full text-left rounded-2xl p-4 transition border ${currentModel === "deep"
-                  ? "bg-amber-glow/10 border-amber-glow glow-amber text-foreground"
-                  : "glass border-transparent hover:bg-secondary/40 text-muted-foreground"
-                  }`}
-              >
-                <p className="text-sm font-bold flex items-center gap-1.5">
-                  <Calendar className="size-4 text-amber-glow" /> Deep Thinker
-                </p>
-                <p className="text-[10px] mt-1 leading-relaxed">
-                  Gemini Flash. Textbooks scanning, advanced derivations.
-                </p>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       </div>
     </>
   );

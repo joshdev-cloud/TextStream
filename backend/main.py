@@ -1,7 +1,12 @@
 import os
 import json
 import shutil
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Depends, Header
+import time
+import collections
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Depends, Header, Request
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import HTTPException as StarletteHTTPException
+from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi.middleware.cors import CORSMiddleware
 from supabase import create_client, Client
 from pydantic import BaseModel
@@ -21,6 +26,94 @@ from langchain_core.prompts import ChatPromptTemplate
 from fastapi.staticfiles import StaticFiles
 
 app = FastAPI(title="TextStream API Backend", version="2.0")
+
+# ──────────────────────────── Security State ────────────────────────────
+RATE_LIMIT_STANDARD = 60
+RATE_LIMIT_STRICT = 10
+RATE_LIMIT_CHALLENGE = 20
+WINDOW_SIZE = 60
+
+ip_requests_standard = collections.defaultdict(list)
+ip_requests_strict = collections.defaultdict(list)
+ip_requests_challenge = collections.defaultdict(list)
+
+BOT_USER_AGENTS = ["gptbot", "claudebot", "bytesspider", "ccbot"]
+
+class SecurityMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        client_ip = request.client.host if request.client else "127.0.0.1"
+        path = request.url.path
+        user_agent = (request.headers.get("user-agent") or "").lower()
+        
+        # 1. Bot Protection
+        for bot in BOT_USER_AGENTS:
+            if bot in user_agent:
+                return JSONResponse(status_code=403, content={"detail": "Access Denied: Automated bots are not allowed."})
+                
+        # 2. Payload Size Limit for /api/upload
+        if path == "/api/upload":
+            content_length = request.headers.get("content-length")
+            if content_length:
+                if int(content_length) > 15 * 1024 * 1024:
+                    return JSONResponse(status_code=413, content={"detail": "Payload Too Large: Maximum upload size is 15MB."})
+        
+        current_time = time.time()
+        
+        # Helper to check rate limit
+        def check_rate_limit(req_list, limit):
+            req_list[:] = [t for t in req_list if current_time - t < WINDOW_SIZE]
+            if len(req_list) >= limit:
+                return False
+            req_list.append(current_time)
+            return True
+
+        # 3. Rate Limiting
+        if path in ["/api/upload", "/api/quiz"]:
+            if not check_rate_limit(ip_requests_strict[client_ip], RATE_LIMIT_STRICT):
+                return JSONResponse(status_code=429, content={"detail": "Too Many Requests: Strict rate limit exceeded."})
+        else:
+            if not check_rate_limit(ip_requests_standard[client_ip], RATE_LIMIT_STANDARD):
+                return JSONResponse(status_code=429, content={"detail": "Too Many Requests: Standard rate limit exceeded."})
+
+        # 4. Challenge suspicious traffic patterns on text-gen routes
+        if path in ["/api/chat", "/api/summarize", "/api/quiz"]:
+            req_list_challenge = ip_requests_challenge[client_ip]
+            req_list_challenge[:] = [t for t in req_list_challenge if current_time - t < WINDOW_SIZE]
+            if len(req_list_challenge) >= RATE_LIMIT_CHALLENGE:
+                return JSONResponse(
+                    status_code=403, 
+                    content={"challenge_required": True, "message": "Suspicious traffic detected."}
+                )
+            req_list_challenge.append(current_time)
+
+        # 5. Process request
+        response = await call_next(request)
+        
+        # 6. Downstream Security Headers
+        response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains; preload"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; object-src 'none';"
+        
+        return response
+
+app.add_middleware(SecurityMiddleware)
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=503,
+        content={"status": 503, "message": "The system is currently handling high volume. Please try again shortly."}
+    )
+
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    if exc.status_code >= 500:
+        return JSONResponse(
+            status_code=503,
+            content={"status": 503, "message": "The system is currently handling high volume. Please try again shortly."}
+        )
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
 supabase: Client | None = None
 if Config.SUPABASE_URL and Config.SUPABASE_ANON_KEY:

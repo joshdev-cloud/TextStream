@@ -317,6 +317,11 @@ function SignUpView({ onSwitchView, router }: { onSwitchView: () => void; router
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const handleGoogleLogin = async () => {
+    if (!agreed) {
+      setError("You must agree to the Terms and Conditions to create an account.");
+      return;
+    }
+    
     setIsLoading(true);
     setError(null);
     try {

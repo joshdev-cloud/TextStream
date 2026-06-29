@@ -3,6 +3,7 @@ import { Menu, LogIn, Settings, HelpCircle, Info, Mail, LogOut, User as UserIcon
 import { AuthModal } from "@/components/ui/AuthModal";
 import { InfoModal, type InfoModalType } from "@/components/ui/InfoModal";
 import { EditProfileModal } from "@/components/ui/EditProfileModal";
+import { TermsModal } from "@/components/ui/TermsModal";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import { useNavigate } from "@tanstack/react-router";
@@ -11,6 +12,7 @@ export function GlobalMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
   const [infoModalType, setInfoModalType] = useState<InfoModalType>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   
@@ -102,7 +104,7 @@ export function GlobalMenu() {
               </button>
               
               <button
-                onClick={() => handleAction(() => setInfoModalType("terms"))}
+                onClick={() => handleAction(() => setShowTermsModal(true))}
                 className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition hover:bg-secondary/60 text-muted-foreground hover:text-foreground cursor-pointer"
               >
                 <FileText className="size-4" />
@@ -131,6 +133,7 @@ export function GlobalMenu() {
 
       <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
       <EditProfileModal isOpen={showEditProfileModal} onClose={() => setShowEditProfileModal(false)} />
+      <TermsModal open={showTermsModal} onClose={() => setShowTermsModal(false)} />
       <InfoModal type={infoModalType} onClose={() => setInfoModalType(null)} />
     </>
   );

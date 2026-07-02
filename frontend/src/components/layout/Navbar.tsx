@@ -6,7 +6,7 @@
  */
 
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Moon, Sun, Home, BookOpen, Folder } from "lucide-react";
+import { Home, BookOpen, Folder } from "lucide-react";
 import { ModelBadge, type ModelKey } from "@/components/ui/ModelBadge";
 import { useDocumentManager } from "@/hooks/useDocumentManager";
 import { GlobalMenu } from "@/components/layout/GlobalMenu";
@@ -18,7 +18,7 @@ interface NavbarProps {
 }
 
 export function Navbar({ subtitle: propSubtitle }: NavbarProps) {
-  const { currentModel, theme, toggleTheme, activeSession, toggleGlobalVault, endSession, setActiveSessionId } = useDocumentManager();
+  const { currentModel, activeSession, toggleGlobalVault, endSession, setActiveSessionId } = useDocumentManager();
   const routerState = useRouterState();
 
   // Check if we are inside the active study workspace (/workspace)
@@ -101,13 +101,7 @@ export function Navbar({ subtitle: propSubtitle }: NavbarProps) {
 
         <ModelBadge />
 
-        <button
-          onClick={toggleTheme}
-          aria-label="Toggle light/dark theme"
-          className="size-9 grid place-items-center glass rounded-2xl hover:bg-secondary/60 transition text-foreground"
-        >
-          {theme === "light" ? <Sun className="size-4" /> : <Moon className="size-4" />}
-        </button>
+
       </div>
     </header>
   );

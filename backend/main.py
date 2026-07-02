@@ -130,8 +130,10 @@ class SecurityMiddleware(BaseHTTPMiddleware):
         api_base = os.getenv("API_BASE_URL", "http://localhost:8000")
         response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains; preload"
         response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
-        response.headers["Content-Security-Policy"] = f"default-src 'self'; script-src 'self'; connect-src 'self' {api_base} https://api.openai.com https://api.anthropic.com; object-src 'none';"
+        
+        if not path.startswith("/documents"):
+            response.headers["X-Frame-Options"] = "DENY"
+            response.headers["Content-Security-Policy"] = f"default-src 'self'; script-src 'self'; connect-src 'self' {api_base} https://api.openai.com https://api.anthropic.com; object-src 'none';"
         
         return response
 
@@ -778,4 +780,4 @@ async def ingest_arxiv(request: IngestArxivRequest, background_tasks: Background
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

@@ -1026,7 +1026,7 @@ export function Workspace() {
                 {readerDoc ? (
                   <div className="flex flex-col h-full animate-fade-in duration-500 w-full relative">
                     <iframe
-                      src={`http://${window.location.hostname}:8000/documents/${encodeURIComponent(readerDoc.name)}`}
+                      src={`http://${window.location.hostname === 'localhost' ? '127.0.0.1' : window.location.hostname}:8000/documents/${encodeURIComponent(readerDoc.name)}`}
                       className="w-full h-full rounded-xl border-none absolute inset-0 bg-white"
                       title={readerDoc.name}
                     />

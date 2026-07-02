@@ -170,7 +170,7 @@ const pollTask = async (taskId: string) => {
   const start = Date.now();
   
   while (Date.now() - start < maxTime) {
-    const res = await fetch(`http://localhost:8000/api/tasks/${taskId}`);
+    const res = await fetch(`http://${window.location.hostname}:8000/api/tasks/${taskId}`);
     if (!res.ok) throw new Error("Task polling failed");
     const data = await res.json();
     
@@ -258,7 +258,7 @@ export function Workspace() {
       const formData = new FormData();
       formData.append("file", file);
 
-      const response = await fetch("http://localhost:8000/api/upload", {
+      const response = await fetch(`http://${window.location.hostname}:8000/api/upload`, {
         method: "POST",
         headers: {
           ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
@@ -311,7 +311,7 @@ export function Workspace() {
     }
     setIsUploading(true);
     try {
-      const response = await fetch("http://localhost:8000/api/ingest_arxiv", {
+      const response = await fetch(`http://${window.location.hostname}:8000/api/ingest_arxiv`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -551,7 +551,7 @@ export function Workspace() {
     const activeDocNames = sessionDocuments.filter(d => d.active).map(d => d.name);
 
     try {
-      const response = await fetch("http://localhost:8000/api/chat", {
+      const response = await fetch(`http://${window.location.hostname}:8000/api/chat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -606,7 +606,7 @@ export function Workspace() {
     
     const activeDocNames = sessionDocuments.filter(d => d.active).map(d => d.name);
     try {
-      const response = await fetch("http://localhost:8000/api/summarize", {
+      const response = await fetch(`http://${window.location.hostname}:8000/api/summarize`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -648,7 +648,7 @@ export function Workspace() {
     
     const activeDocNames = sessionDocuments.filter(d => d.active).map(d => d.name);
     try {
-      const response = await fetch("http://localhost:8000/api/quiz", {
+      const response = await fetch(`http://${window.location.hostname}:8000/api/quiz`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -713,7 +713,7 @@ export function Workspace() {
       formData.append("file", file);
       formData.append("user_id", user?.id || "global");
 
-      const response = await fetch("http://localhost:8000/api/upload", {
+      const response = await fetch(`http://${window.location.hostname}:8000/api/upload`, {
         method: "POST",
         body: formData,
       });
@@ -1026,7 +1026,7 @@ export function Workspace() {
                 {readerDoc ? (
                   <div className="flex flex-col h-full animate-fade-in duration-500 w-full relative">
                     <iframe
-                      src={`http://localhost:8000/documents/${encodeURIComponent(readerDoc.name)}`}
+                      src={`http://${window.location.hostname}:8000/documents/${encodeURIComponent(readerDoc.name)}`}
                       className="w-full h-full rounded-xl border-none absolute inset-0 bg-white"
                       title={readerDoc.name}
                     />

@@ -14,6 +14,7 @@ import appCss from "../styles.css?url";
 import { DocumentProvider } from "@/store/documentStore";
 import { GlobalVaultModal } from "@/components/ui/GlobalVaultModal";
 import { AuthProvider } from "@/hooks/useAuth";
+import { ColorThemeProvider } from "@/hooks/useColorTheme";
 
 function NotFoundComponent() {
   return (
@@ -128,13 +129,15 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <DocumentProvider>
-          {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-          <div key={routerState.location.pathname} className="animate-fade-in">
-            <Outlet />
-          </div>
-          <GlobalVaultModal />
-        </DocumentProvider>
+        <ColorThemeProvider>
+          <DocumentProvider>
+            {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+            <div key={routerState.location.pathname} className="animate-fade-in">
+              <Outlet />
+            </div>
+            <GlobalVaultModal />
+          </DocumentProvider>
+        </ColorThemeProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

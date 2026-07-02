@@ -225,7 +225,7 @@ export function useDocumentManager() {
 
   const refreshDocuments = useCallback(async () => {
     try {
-      const res = await fetch("http://localhost:8000/api/documents");
+      const res = await fetch(`http://${window.location.hostname}:8000/api/documents`);
       if (res.ok) {
         const data = await res.json();
         console.log(`${LOG_PREFIX} refreshDocuments() — fetched ${data.documents?.length} documents`);

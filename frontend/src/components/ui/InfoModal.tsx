@@ -1,4 +1,4 @@
-import { X, HelpCircle, Info, Mail, FileText, Settings } from "lucide-react";
+import { X, HelpCircle, Info, Mail, FileText, Settings, Palette, Check, ChevronDown, ChevronUp } from "lucide-react";
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 
@@ -10,10 +10,28 @@ interface InfoModalProps {
 }
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
+import { useColorTheme } from "@/hooks/useColorTheme";
+import type { CustomThemeColors } from "@/lib/colorThemes";
 
 export function InfoModal({ type, onClose }: InfoModalProps) {
   const { user } = useAuth();
   const [mounted, setMounted] = useState(false);
+
+  // Color theme hook
+  const colorTheme = useColorTheme();
+
+  // DIY custom color local state
+  const [showDiy, setShowDiy] = useState(false);
+  const [diyColors, setDiyColors] = useState<CustomThemeColors>({
+    background: "#1a1b2e",
+    foreground: "#f0eef5",
+    primary: "#d4a843",
+    accent: "#9b7be8",
+    card: "#2a2b3e",
+    border: "#4a4b5e",
+    muted: "#8a8b9e",
+  });
+  const [diyMode, setDiyMode] = useState<"dark" | "light">("dark");
 
   // Load preferences from localStorage or user metadata
   const [highContrast, setHighContrast] = useState(() => localStorage.getItem("pref_high_contrast") === "true");
@@ -67,6 +85,9 @@ export function InfoModal({ type, onClose }: InfoModalProps) {
   const handleSavePreferences = async () => {
     setIsSaving(true);
     try {
+      // Save color theme to Supabase
+      await colorTheme.saveToSupabase();
+      
       if (user) {
         await supabase.auth.updateUser({
           data: {
@@ -225,6 +246,296 @@ export function InfoModal({ type, onClose }: InfoModalProps) {
       description: "Customize your TextStream experience.",
       body: (
         <div className="space-y-6 text-sm text-muted-foreground overflow-y-auto max-h-[60vh] pr-2 custom-scrollbar">
+          {/* ── Color Theme Section ─────────────────────── */}
+          <div className="space-y-4">
+            <h4 className="font-bold text-foreground border-b border-border/50 pb-2 flex items-center gap-2">
+              <Palette className="size-4" />
+              Color Theme
+            </h4>
+
+            {/* Live Preview Strip */}
+            <div className="rounded-xl overflow-hidden border border-border/40">
+              <div
+                className="p-4 flex items-center gap-3 transition-all duration-500"
+                style={{ background: colorTheme.activeTheme.preview.bg }}
+              >
+                <div className="flex-1 space-y-1.5">
+                  <div
+                    className="text-xs font-bold tracking-wide"
+                    style={{ color: colorTheme.activeTheme.preview.text }}
+                  >
+                    {colorTheme.activeTheme.name} Preview
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="h-2 rounded-full flex-1 transition-all duration-500"
+                      style={{ background: colorTheme.activeTheme.preview.primary }}
+                    />
+                    <div
+                      className="h-2 rounded-full w-1/4 transition-all duration-500"
+                      style={{ background: colorTheme.activeTheme.preview.accent }}
+                    />
+                  </div>
+                  <div className="flex gap-1.5 mt-1">
+                    <div
+                      className="h-1.5 rounded-full w-2/3 opacity-40 transition-all duration-500"
+                      style={{ background: colorTheme.activeTheme.preview.text }}
+                    />
+                    <div
+                      className="h-1.5 rounded-full w-1/3 opacity-20 transition-all duration-500"
+                      style={{ background: colorTheme.activeTheme.preview.text }}
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <div
+                    className="size-5 rounded-md transition-all duration-500"
+                    style={{ background: colorTheme.activeTheme.preview.primary }}
+                  />
+                  <div
+                    className="size-5 rounded-md transition-all duration-500"
+                    style={{ background: colorTheme.activeTheme.preview.accent }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Dark Themes */}
+            <div>
+              <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-2">Dark Themes</p>
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                {colorTheme.darkThemes.map((theme) => {
+                  const isActive = !colorTheme.isCustom && colorTheme.activeThemeId === theme.id;
+                  return (
+                    <button
+                      key={theme.id}
+                      onClick={() => colorTheme.setColorTheme(theme.id)}
+                      className={`group relative rounded-xl p-2 transition-all duration-200 cursor-pointer border ${
+                        isActive
+                          ? "border-amber-glow/60 ring-1 ring-amber-glow/40 scale-[1.02]"
+                          : "border-border/30 hover:border-border/60 hover:scale-[1.02]"
+                      }`}
+                      style={{ background: theme.preview.bg }}
+                    >
+                      {isActive && (
+                        <div className="absolute -top-1.5 -right-1.5 size-5 rounded-full bg-amber-glow grid place-items-center shadow-lg z-10">
+                          <Check className="size-3 text-white" strokeWidth={3} />
+                        </div>
+                      )}
+                      <div className="flex gap-1 mb-1.5">
+                        <div className="h-4 flex-1 rounded-sm" style={{ background: theme.preview.primary }} />
+                        <div className="h-4 w-3 rounded-sm" style={{ background: theme.preview.accent }} />
+                      </div>
+                      <div className="flex gap-0.5 mb-1">
+                        <div className="h-1 flex-1 rounded-full opacity-50" style={{ background: theme.preview.text }} />
+                        <div className="h-1 w-2 rounded-full opacity-25" style={{ background: theme.preview.text }} />
+                      </div>
+                      <p
+                        className="text-[10px] font-semibold truncate mt-1"
+                        style={{ color: theme.preview.text }}
+                      >
+                        {theme.name}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Light Themes */}
+            <div>
+              <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-2">Light Themes</p>
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                {colorTheme.lightThemes.map((theme) => {
+                  const isActive = !colorTheme.isCustom && colorTheme.activeThemeId === theme.id;
+                  return (
+                    <button
+                      key={theme.id}
+                      onClick={() => colorTheme.setColorTheme(theme.id)}
+                      className={`group relative rounded-xl p-2 transition-all duration-200 cursor-pointer border ${
+                        isActive
+                          ? "border-amber-glow/60 ring-1 ring-amber-glow/40 scale-[1.02]"
+                          : "border-border/30 hover:border-border/60 hover:scale-[1.02]"
+                      }`}
+                      style={{ background: theme.preview.bg }}
+                    >
+                      {isActive && (
+                        <div className="absolute -top-1.5 -right-1.5 size-5 rounded-full bg-amber-glow grid place-items-center shadow-lg z-10">
+                          <Check className="size-3 text-white" strokeWidth={3} />
+                        </div>
+                      )}
+                      <div className="flex gap-1 mb-1.5">
+                        <div className="h-4 flex-1 rounded-sm" style={{ background: theme.preview.primary }} />
+                        <div className="h-4 w-3 rounded-sm" style={{ background: theme.preview.accent }} />
+                      </div>
+                      <div className="flex gap-0.5 mb-1">
+                        <div className="h-1 flex-1 rounded-full opacity-50" style={{ background: theme.preview.text }} />
+                        <div className="h-1 w-2 rounded-full opacity-25" style={{ background: theme.preview.text }} />
+                      </div>
+                      <p
+                        className="text-[10px] font-semibold truncate mt-1"
+                        style={{ color: theme.preview.text }}
+                      >
+                        {theme.name}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* DIY Custom Theme */}
+            <div className="rounded-xl border border-border/40 overflow-hidden">
+              <button
+                onClick={() => setShowDiy(!showDiy)}
+                className="w-full flex items-center justify-between px-3 py-2.5 text-xs font-semibold text-foreground hover:bg-secondary/30 transition cursor-pointer"
+              >
+                <span className="flex items-center gap-2">
+                  <Palette className="size-3.5" />
+                  DIY Custom Theme
+                  {colorTheme.isCustom && (
+                    <span className="px-1.5 py-0.5 rounded-full bg-amber-glow/20 text-amber-glow text-[10px] font-bold">Active</span>
+                  )}
+                </span>
+                {showDiy ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
+              </button>
+
+              {showDiy && (
+                <div className="px-3 pb-3 space-y-3 border-t border-border/30 pt-3">
+                  {/* Mode selector */}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setDiyMode("dark")}
+                      className={`flex-1 py-1.5 text-[11px] font-semibold rounded-lg transition cursor-pointer ${
+                        diyMode === "dark"
+                          ? "bg-foreground/10 text-foreground"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      Dark Base
+                    </button>
+                    <button
+                      onClick={() => setDiyMode("light")}
+                      className={`flex-1 py-1.5 text-[11px] font-semibold rounded-lg transition cursor-pointer ${
+                        diyMode === "light"
+                          ? "bg-foreground/10 text-foreground"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      Light Base
+                    </button>
+                  </div>
+
+                  {/* Color pickers with wheel + hex input */}
+                  <div className="space-y-2">
+                    {(
+                      [
+                        { key: "background" as const, label: "Background" },
+                        { key: "foreground" as const, label: "Text" },
+                        { key: "primary" as const, label: "Primary" },
+                        { key: "accent" as const, label: "Accent" },
+                        { key: "card" as const, label: "Card" },
+                        { key: "border" as const, label: "Border" },
+                        { key: "muted" as const, label: "Muted" },
+                      ]
+                    ).map(({ key, label }) => (
+                      <div key={key} className="flex items-center gap-2.5 group">
+                        {/* Color wheel swatch — opens native color picker */}
+                        <div className="relative shrink-0">
+                          <div
+                            className="size-8 rounded-full border-2 border-border/50 shadow-md transition-all duration-200 group-hover:scale-110 group-hover:border-foreground/30 group-hover:shadow-lg"
+                            style={{ background: diyColors[key] }}
+                          >
+                            {/* Inner ring for depth */}
+                            <div className="absolute inset-[3px] rounded-full border border-white/20 pointer-events-none" />
+                          </div>
+                          <input
+                            type="color"
+                            value={diyColors[key]}
+                            onChange={(e) =>
+                              setDiyColors((prev) => ({ ...prev, [key]: e.target.value }))
+                            }
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                            title={`Pick ${label} color`}
+                          />
+                        </div>
+
+                        {/* Label */}
+                        <span className="text-[11px] font-semibold text-muted-foreground group-hover:text-foreground transition w-[68px] shrink-0">
+                          {label}
+                        </span>
+
+                        {/* Hex code input */}
+                        <div className="flex-1 relative">
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-mono text-muted-foreground/60 pointer-events-none">#</span>
+                          <input
+                            type="text"
+                            value={diyColors[key].replace("#", "").toUpperCase()}
+                            onChange={(e) => {
+                              let val = e.target.value.replace(/[^0-9a-fA-F]/g, "").slice(0, 6);
+                              if (val.length <= 6) {
+                                setDiyColors((prev) => ({ ...prev, [key]: `#${val}` }));
+                              }
+                            }}
+                            onBlur={(e) => {
+                              // Pad to 6 chars on blur
+                              let val = e.target.value.replace(/[^0-9a-fA-F]/g, "");
+                              while (val.length < 6) val += "0";
+                              setDiyColors((prev) => ({ ...prev, [key]: `#${val.slice(0, 6)}` }));
+                            }}
+                            maxLength={6}
+                            className="w-full pl-5 pr-2 py-1.5 text-[11px] font-mono font-medium bg-secondary/30 border border-border/40 rounded-lg text-foreground outline-none transition-all focus:border-amber-glow/50 focus:ring-1 focus:ring-amber-glow/30 placeholder:text-muted-foreground/40"
+                            placeholder="000000"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* DIY Preview */}
+                  <div
+                    className="rounded-lg p-3 border border-border/30 transition-all duration-300"
+                    style={{ background: diyColors.background }}
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="h-3 flex-1 rounded-sm" style={{ background: diyColors.primary }} />
+                      <div className="h-3 w-4 rounded-sm" style={{ background: diyColors.accent }} />
+                    </div>
+                    <div className="flex gap-1">
+                      <div className="h-1.5 flex-1 rounded-full opacity-60" style={{ background: diyColors.foreground }} />
+                      <div className="h-1.5 w-4 rounded-full opacity-30" style={{ background: diyColors.foreground }} />
+                    </div>
+                    <div className="mt-2 flex gap-2">
+                      <div className="flex-1 rounded-md p-1.5" style={{ background: diyColors.card }}>
+                        <div className="h-1 rounded-full w-3/4 opacity-50" style={{ background: diyColors.foreground }} />
+                      </div>
+                      <div className="w-6 rounded-md" style={{ background: diyColors.muted, opacity: 0.5 }} />
+                    </div>
+                  </div>
+
+                  {/* Apply / Reset buttons */}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => colorTheme.setCustomTheme(diyColors, diyMode)}
+                      className="flex-1 py-2 text-xs font-bold rounded-lg bg-gradient-to-r from-amber-glow to-coral text-white transition hover:brightness-110 cursor-pointer"
+                    >
+                      Apply Custom Theme
+                    </button>
+                    {colorTheme.isCustom && (
+                      <button
+                        onClick={() => colorTheme.clearCustomTheme()}
+                        className="px-3 py-2 text-xs font-semibold rounded-lg bg-secondary/50 text-foreground hover:bg-secondary transition cursor-pointer"
+                      >
+                        Reset
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ── Notifications Section ─────────────────────── */}
           <div className="space-y-4">
             <h4 className="font-bold text-foreground border-b border-border/50 pb-2">Notifications</h4>
             <div className="flex items-center justify-between">
@@ -259,6 +570,7 @@ export function InfoModal({ type, onClose }: InfoModalProps) {
             </div>
           </div>
 
+          {/* ── Accessibility Section ─────────────────────── */}
           <div className="space-y-4">
             <h4 className="font-bold text-foreground border-b border-border/50 pb-2">Accessibility</h4>
             <div className="flex items-center justify-between">
@@ -292,10 +604,12 @@ export function InfoModal({ type, onClose }: InfoModalProps) {
               </label>
             </div>
           </div>
+
+          {/* ── Save Button ─────────────────────── */}
           <button
             onClick={handleSavePreferences}
             disabled={isSaving}
-            className="w-full py-2 mt-4 text-sm font-bold transition rounded-xl bg-secondary/50 hover:bg-secondary text-foreground disabled:opacity-50"
+            className="w-full py-2.5 mt-2 text-sm font-bold transition rounded-xl bg-gradient-to-r from-amber-glow to-coral text-white hover:brightness-110 hover:scale-[1.01] disabled:opacity-50 cursor-pointer"
           >
             {isSaving ? "Saving..." : "Save Preferences"}
           </button>
@@ -313,7 +627,7 @@ export function InfoModal({ type, onClose }: InfoModalProps) {
         onClick={onClose}
         aria-label="Close Modal Overlay"
       />
-      <div className="relative z-10 w-full max-w-md p-8 overflow-hidden border shadow-2xl glass-strong rounded-3xl animate-slide-up">
+      <div className={`relative z-10 w-full ${type === "preferences" ? "max-w-lg" : "max-w-md"} p-8 overflow-hidden border shadow-2xl glass-strong rounded-3xl animate-slide-up`}>
         <div className="absolute top-0 right-0 w-48 h-48 rounded-full pointer-events-none bg-amber-glow/20 blur-3xl -translate-y-1/2 translate-x-1/4" />
         <div className="absolute bottom-0 left-0 w-48 h-48 rounded-full pointer-events-none bg-lavender/20 blur-3xl translate-y-1/2 -translate-x-1/4" />
 

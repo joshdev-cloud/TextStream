@@ -39,7 +39,7 @@ export function WebSearchModal({ isOpen, onClose, onIngest }: WebSearchModalProp
     setIsSearching(true);
     setResults([]);
     try {
-      const res = await fetch(`http://localhost:8000/api/search_arxiv?q=${encodeURIComponent(query)}`);
+      const res = await fetch(`http://${window.location.hostname}:8000/api/search_arxiv?q=${encodeURIComponent(query)}`);
       if (!res.ok) throw new Error("Search failed");
       const data = await res.json();
       setResults(data.results || []);

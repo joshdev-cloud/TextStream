@@ -43,6 +43,8 @@ interface ColorThemeContextValue {
   isCustom: boolean;
   /** Current custom colors (only meaningful when isCustom is true) */
   customColors: CustomThemeColors | null;
+  /** Current custom mode (only meaningful when isCustom is true) */
+  customMode: "dark" | "light";
   /** The resolved ColorTheme object for the active preset */
   activeTheme: ColorTheme;
   /** All available dark presets */
@@ -356,6 +358,7 @@ export function ColorThemeProvider({ children }: { children: ReactNode }) {
     activeThemeId,
     isCustom,
     customColors,
+    customMode,
     activeTheme,
     darkThemes: DARK_THEMES,
     lightThemes: LIGHT_THEMES,

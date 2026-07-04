@@ -34,25 +34,37 @@ export function InfoModal({ type, onClose }: InfoModalProps) {
   const [diyMode, setDiyMode] = useState<"dark" | "light">("dark");
 
   // Preview theme state
-  const [previewThemeId, setPreviewThemeId] = useState(colorTheme.isCustom ? "custom" : colorTheme.activeThemeId);
+  const [previewThemeId, setPreviewThemeId] = useState(colorTheme.isCustom ? "my-custom" : colorTheme.activeThemeId);
   
   // Calculate the currently previewed theme object
   const previewThemeObj = useMemo(() => {
     if (previewThemeId === "custom") {
       return {
         id: "custom",
-        name: "Custom DIY",
+        name: "Unsaved Custom DIY",
         mode: diyMode,
         preview: { bg: diyColors.background, primary: diyColors.primary, accent: diyColors.accent, text: diyColors.foreground },
         variables: buildCustomThemeVariables(diyColors, diyMode)
       };
     }
+    if (previewThemeId === "my-custom" && colorTheme.customColors) {
+      return {
+        id: "my-custom",
+        name: "My Custom Theme",
+        mode: colorTheme.customMode,
+        preview: { bg: colorTheme.customColors.background, primary: colorTheme.customColors.primary, accent: colorTheme.customColors.accent, text: colorTheme.customColors.foreground },
+        variables: buildCustomThemeVariables(colorTheme.customColors, colorTheme.customMode)
+      };
+    }
     return getThemeById(previewThemeId) || colorTheme.activeTheme;
-  }, [previewThemeId, colorTheme.activeTheme, diyColors, diyMode]);
+  }, [previewThemeId, colorTheme.activeTheme, diyColors, diyMode, colorTheme.customColors, colorTheme.customMode]);
 
   const handleSetTheme = async () => {
     if (previewThemeId === "custom") {
       colorTheme.setCustomTheme(diyColors, diyMode);
+      setPreviewThemeId("my-custom");
+    } else if (previewThemeId === "my-custom" && colorTheme.customColors) {
+      colorTheme.setCustomTheme(colorTheme.customColors, colorTheme.customMode);
     } else {
       colorTheme.setColorTheme(previewThemeId);
     }
@@ -332,14 +344,64 @@ export function InfoModal({ type, onClose }: InfoModalProps) {
                  </div>
                  <button 
                    onClick={handleSetTheme}
-                   disabled={previewThemeId === (colorTheme.isCustom ? "custom" : colorTheme.activeThemeId)}
+                   disabled={previewThemeId === (colorTheme.isCustom ? "my-custom" : colorTheme.activeThemeId)}
                    className="px-4 py-1.5 rounded-full text-xs font-bold text-white shadow-lg transition-transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:scale-100 cursor-pointer"
                    style={{ backgroundColor: 'var(--primary)' }}
                  >
-                   {previewThemeId === (colorTheme.isCustom ? "custom" : colorTheme.activeThemeId) ? "Active Theme" : "Set Theme"}
+                   {previewThemeId === (colorTheme.isCustom ? "my-custom" : colorTheme.activeThemeId) ? "Active Theme" : "Set Theme"}
                  </button>
                </div>
             </div>
+
+            {/* My Custom Theme */}
+            {colorTheme.customColors && (
+              <div>
+                <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-2">My Custom Theme</p>
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                  {(() => {
+                    const isActive = previewThemeId === "my-custom";
+                    return (
+                      <button
+                        onClick={() => setPreviewThemeId("my-custom")}
+                        className={`group relative rounded-2xl p-2.5 transition-all duration-300 cursor-pointer border ${
+                          isActive
+                            ? "ring-2 scale-[1.03] shadow-lg"
+                            : "border-border/20 hover:border-border/50 hover:scale-[1.03] hover:shadow-md hover:shadow-black/20"
+                        }`}
+                        style={{ 
+                          background: colorTheme.customColors.background,
+                          borderColor: isActive ? colorTheme.customColors.primary : undefined,
+                          boxShadow: isActive ? `0 4px 20px -5px ${colorTheme.customColors.primary}50` : undefined
+                        }}
+                      >
+                        {isActive && (
+                          <div 
+                            className="absolute -top-2 -right-2 size-6 rounded-full grid place-items-center shadow-lg z-10 transition-transform duration-300 scale-110"
+                            style={{ background: colorTheme.customColors.primary }}
+                          >
+                            <Check className="size-3.5" style={{ color: colorTheme.customColors.background }} strokeWidth={4} />
+                          </div>
+                        )}
+                        <div className="flex gap-1.5 mb-2">
+                          <div className="h-4 flex-1 rounded-sm" style={{ background: colorTheme.customColors.primary }} />
+                          <div className="h-4 w-3 rounded-sm" style={{ background: colorTheme.customColors.accent }} />
+                        </div>
+                        <div className="flex gap-0.5 mb-1">
+                          <div className="h-1 flex-1 rounded-full opacity-50" style={{ background: colorTheme.customColors.foreground }} />
+                          <div className="h-1 w-2 rounded-full opacity-25" style={{ background: colorTheme.customColors.foreground }} />
+                        </div>
+                        <p
+                          className="text-[10px] font-semibold truncate mt-1"
+                          style={{ color: colorTheme.customColors.foreground }}
+                        >
+                          Custom
+                        </p>
+                      </button>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
 
             {/* Dark Themes */}
             <div>

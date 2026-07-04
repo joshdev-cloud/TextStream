@@ -1,5 +1,5 @@
 import { X, HelpCircle, Info, Mail, FileText, Settings, Palette, Check, ChevronDown, ChevronUp } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 
 export type InfoModalType = "help" | "info" | "contact" | "terms" | "preferences" | null;
@@ -11,7 +11,7 @@ interface InfoModalProps {
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import { useColorTheme } from "@/hooks/useColorTheme";
-import type { CustomThemeColors } from "@/lib/colorThemes";
+import { type CustomThemeColors, getThemeById, buildCustomThemeVariables } from "@/lib/colorThemes";
 
 export function InfoModal({ type, onClose }: InfoModalProps) {
   const { user } = useAuth();
@@ -32,6 +32,32 @@ export function InfoModal({ type, onClose }: InfoModalProps) {
     muted: "#8a8b9e",
   });
   const [diyMode, setDiyMode] = useState<"dark" | "light">("dark");
+
+  // Preview theme state
+  const [previewThemeId, setPreviewThemeId] = useState(colorTheme.isCustom ? "custom" : colorTheme.activeThemeId);
+  
+  // Calculate the currently previewed theme object
+  const previewThemeObj = useMemo(() => {
+    if (previewThemeId === "custom") {
+      return {
+        id: "custom",
+        name: "Custom DIY",
+        mode: diyMode,
+        preview: { bg: diyColors.background, primary: diyColors.primary, accent: diyColors.accent, text: diyColors.foreground },
+        variables: buildCustomThemeVariables(diyColors, diyMode)
+      };
+    }
+    return getThemeById(previewThemeId) || colorTheme.activeTheme;
+  }, [previewThemeId, colorTheme.activeTheme, diyColors, diyMode]);
+
+  const handleSetTheme = async () => {
+    if (previewThemeId === "custom") {
+      colorTheme.setCustomTheme(diyColors, diyMode);
+    } else {
+      colorTheme.setColorTheme(previewThemeId);
+    }
+    await colorTheme.saveToSupabase();
+  };
 
   // Load preferences from localStorage or user metadata
   const [highContrast, setHighContrast] = useState(() => localStorage.getItem("pref_high_contrast") === "true");
@@ -253,54 +279,66 @@ export function InfoModal({ type, onClose }: InfoModalProps) {
               Color Theme
             </h4>
 
-            {/* Live Preview Strip */}
+            {/* Dashboard Mockup Preview */}
             <div 
-              className="relative rounded-2xl overflow-hidden border border-border/20 transition-all duration-500 shadow-2xl" 
-              style={{ boxShadow: `0 10px 40px -10px ${colorTheme.activeTheme.preview.primary}50` }}
+              className="relative rounded-2xl overflow-hidden border border-border/20 transition-all duration-500 shadow-2xl flex flex-col" 
+              style={{ 
+                ...previewThemeObj.variables as React.CSSProperties, 
+                backgroundColor: 'var(--background)',
+                color: 'var(--foreground)',
+                height: '240px',
+                boxShadow: `0 10px 40px -10px ${previewThemeObj.preview.primary}50`
+              }}
             >
-              <div
-                className="p-5 flex items-center gap-4 transition-all duration-500"
-                style={{ background: colorTheme.activeTheme.preview.bg }}
-              >
-                <div className="flex-1 space-y-2">
-                  <div
-                    className="text-xs font-bold tracking-wide"
-                    style={{ color: colorTheme.activeTheme.preview.text }}
-                  >
-                    {colorTheme.activeTheme.name} Preview
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="h-2 rounded-full flex-1 transition-all duration-500"
-                      style={{ background: colorTheme.activeTheme.preview.primary }}
-                    />
-                    <div
-                      className="h-2 rounded-full w-1/4 transition-all duration-500"
-                      style={{ background: colorTheme.activeTheme.preview.accent }}
-                    />
-                  </div>
-                  <div className="flex gap-1.5 mt-1">
-                    <div
-                      className="h-1.5 rounded-full w-2/3 opacity-40 transition-all duration-500"
-                      style={{ background: colorTheme.activeTheme.preview.text }}
-                    />
-                    <div
-                      className="h-1.5 rounded-full w-1/3 opacity-20 transition-all duration-500"
-                      style={{ background: colorTheme.activeTheme.preview.text }}
-                    />
-                  </div>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <div
-                    className="size-6 rounded-lg shadow-sm transition-all duration-500"
-                    style={{ background: colorTheme.activeTheme.preview.primary }}
-                  />
-                  <div
-                    className="size-6 rounded-lg shadow-sm transition-all duration-500"
-                    style={{ background: colorTheme.activeTheme.preview.accent }}
-                  />
-                </div>
-              </div>
+               {/* Header */}
+               <div className="h-10 border-b border-border/50 flex items-center px-4 justify-between transition-colors duration-500" style={{ backgroundColor: 'var(--panel)' }}>
+                 <div className="flex items-center gap-2">
+                   <div className="size-4 rounded-full transition-colors duration-500" style={{ backgroundColor: 'var(--primary)' }} />
+                   <div className="h-2 w-16 rounded-full opacity-60 transition-colors duration-500" style={{ backgroundColor: 'var(--foreground)' }} />
+                 </div>
+                 <div className="flex items-center gap-2">
+                   <div className="size-5 rounded-full opacity-50 transition-colors duration-500" style={{ backgroundColor: 'var(--muted)' }} />
+                   <div className="size-5 rounded-full transition-colors duration-500" style={{ backgroundColor: 'var(--accent)' }} />
+                 </div>
+               </div>
+               {/* Body */}
+               <div className="flex flex-1 overflow-hidden">
+                 {/* Sidebar */}
+                 <div className="w-16 border-r border-border/50 p-2 space-y-3 flex flex-col items-center pt-4 transition-colors duration-500" style={{ backgroundColor: 'var(--panel)' }}>
+                   <div className="size-6 rounded-md opacity-70 transition-colors duration-500" style={{ backgroundColor: 'var(--muted)' }} />
+                   <div className="size-6 rounded-md opacity-70 transition-colors duration-500" style={{ backgroundColor: 'var(--muted)' }} />
+                   <div className="size-6 rounded-md transition-colors duration-500" style={{ backgroundColor: 'var(--primary)' }} />
+                 </div>
+                 {/* Main content */}
+                 <div className="flex-1 p-4 space-y-4">
+                   <div className="h-4 w-1/3 rounded-full opacity-80 transition-colors duration-500" style={{ backgroundColor: 'var(--foreground)' }} />
+                   <div className="grid grid-cols-2 gap-3">
+                     <div className="h-20 rounded-xl border border-border/50 p-3 flex flex-col justify-between transition-colors duration-500" style={{ backgroundColor: 'var(--card)' }}>
+                       <div className="h-2 w-1/2 rounded-full opacity-50 transition-colors duration-500" style={{ backgroundColor: 'var(--card-foreground)' }} />
+                       <div className="h-6 w-3/4 rounded-md transition-colors duration-500" style={{ backgroundColor: 'var(--primary)' }} />
+                     </div>
+                     <div className="h-20 rounded-xl border border-border/50 p-3 flex flex-col justify-between transition-colors duration-500" style={{ backgroundColor: 'var(--card)' }}>
+                       <div className="h-2 w-1/2 rounded-full opacity-50 transition-colors duration-500" style={{ backgroundColor: 'var(--card-foreground)' }} />
+                       <div className="h-6 w-3/4 rounded-md transition-colors duration-500" style={{ backgroundColor: 'var(--accent)' }} />
+                     </div>
+                   </div>
+                 </div>
+               </div>
+               
+               {/* Apply overlay */}
+               <div className="absolute bottom-4 right-4 flex items-center gap-3">
+                 <div className="text-[11px] font-bold px-2 py-1 rounded-full backdrop-blur-md" style={{ color: 'var(--foreground)', backgroundColor: 'var(--panel)' }}>
+                   {previewThemeObj.name} Preview
+                 </div>
+                 <button 
+                   onClick={handleSetTheme}
+                   disabled={previewThemeId === (colorTheme.isCustom ? "custom" : colorTheme.activeThemeId)}
+                   className="px-4 py-1.5 rounded-full text-xs font-bold text-white shadow-lg transition-transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:scale-100 cursor-pointer"
+                   style={{ backgroundColor: 'var(--primary)' }}
+                 >
+                   {previewThemeId === (colorTheme.isCustom ? "custom" : colorTheme.activeThemeId) ? "Active Theme" : "Set Theme"}
+                 </button>
+               </div>
             </div>
 
             {/* Dark Themes */}
@@ -308,11 +346,11 @@ export function InfoModal({ type, onClose }: InfoModalProps) {
               <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-2">Dark Themes</p>
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                 {colorTheme.darkThemes.map((theme) => {
-                  const isActive = !colorTheme.isCustom && colorTheme.activeThemeId === theme.id;
+                  const isActive = previewThemeId === theme.id;
                   return (
                     <button
                       key={theme.id}
-                      onClick={() => colorTheme.setColorTheme(theme.id)}
+                      onClick={() => setPreviewThemeId(theme.id)}
                       className={`group relative rounded-2xl p-2.5 transition-all duration-300 cursor-pointer border ${
                         isActive
                           ? "ring-2 scale-[1.03] shadow-lg"
@@ -357,11 +395,11 @@ export function InfoModal({ type, onClose }: InfoModalProps) {
               <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-2">Light Themes</p>
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                 {colorTheme.lightThemes.map((theme) => {
-                  const isActive = !colorTheme.isCustom && colorTheme.activeThemeId === theme.id;
+                  const isActive = previewThemeId === theme.id;
                   return (
                     <button
                       key={theme.id}
-                      onClick={() => colorTheme.setColorTheme(theme.id)}
+                      onClick={() => setPreviewThemeId(theme.id)}
                       className={`group relative rounded-2xl p-2.5 transition-all duration-300 cursor-pointer border ${
                         isActive
                           ? "ring-2 scale-[1.03] shadow-lg"
@@ -404,7 +442,10 @@ export function InfoModal({ type, onClose }: InfoModalProps) {
             {/* DIY Custom Theme */}
             <div className="rounded-xl border border-border/40 overflow-hidden">
               <button
-                onClick={() => setShowDiy(!showDiy)}
+                onClick={() => {
+                  setShowDiy(!showDiy);
+                  if (!showDiy) setPreviewThemeId("custom");
+                }}
                 className="w-full flex items-center justify-between px-3 py-2.5 text-xs font-semibold text-foreground hover:bg-secondary/30 transition cursor-pointer"
               >
                 <span className="flex items-center gap-2">
@@ -422,7 +463,7 @@ export function InfoModal({ type, onClose }: InfoModalProps) {
                   {/* Mode selector */}
                   <div className="flex gap-2">
                     <button
-                      onClick={() => setDiyMode("dark")}
+                      onClick={() => { setDiyMode("dark"); setPreviewThemeId("custom"); }}
                       className={`flex-1 py-1.5 text-[11px] font-semibold rounded-lg transition cursor-pointer ${
                         diyMode === "dark"
                           ? "bg-foreground/10 text-foreground"
@@ -432,7 +473,7 @@ export function InfoModal({ type, onClose }: InfoModalProps) {
                       Dark Base
                     </button>
                     <button
-                      onClick={() => setDiyMode("light")}
+                      onClick={() => { setDiyMode("light"); setPreviewThemeId("custom"); }}
                       className={`flex-1 py-1.5 text-[11px] font-semibold rounded-lg transition cursor-pointer ${
                         diyMode === "light"
                           ? "bg-foreground/10 text-foreground"
@@ -469,9 +510,10 @@ export function InfoModal({ type, onClose }: InfoModalProps) {
                           <input
                             type="color"
                             value={diyColors[key]}
-                            onChange={(e) =>
-                              setDiyColors((prev) => ({ ...prev, [key]: e.target.value }))
-                            }
+                            onChange={(e) => {
+                              setDiyColors((prev) => ({ ...prev, [key]: e.target.value }));
+                              setPreviewThemeId("custom");
+                            }}
                             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                             title={`Pick ${label} color`}
                           />
@@ -492,6 +534,7 @@ export function InfoModal({ type, onClose }: InfoModalProps) {
                               let val = e.target.value.replace(/[^0-9a-fA-F]/g, "").slice(0, 6);
                               if (val.length <= 6) {
                                 setDiyColors((prev) => ({ ...prev, [key]: `#${val}` }));
+                                setPreviewThemeId("custom");
                               }
                             }}
                             onBlur={(e) => {
@@ -499,6 +542,7 @@ export function InfoModal({ type, onClose }: InfoModalProps) {
                               let val = e.target.value.replace(/[^0-9a-fA-F]/g, "");
                               while (val.length < 6) val += "0";
                               setDiyColors((prev) => ({ ...prev, [key]: `#${val.slice(0, 6)}` }));
+                              setPreviewThemeId("custom");
                             }}
                             maxLength={6}
                             className="w-full pl-5 pr-2 py-1.5 text-[11px] font-mono font-medium bg-secondary/30 border border-border/40 rounded-lg text-foreground outline-none transition-all focus:border-amber-glow/50 focus:ring-1 focus:ring-amber-glow/30 placeholder:text-muted-foreground/40"
@@ -509,38 +553,21 @@ export function InfoModal({ type, onClose }: InfoModalProps) {
                     ))}
                   </div>
 
-                  {/* DIY Preview */}
-                  <div
-                    className="rounded-lg p-3 border border-border/30 transition-all duration-300"
-                    style={{ background: diyColors.background }}
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="h-3 flex-1 rounded-sm" style={{ background: diyColors.primary }} />
-                      <div className="h-3 w-4 rounded-sm" style={{ background: diyColors.accent }} />
-                    </div>
-                    <div className="flex gap-1">
-                      <div className="h-1.5 flex-1 rounded-full opacity-60" style={{ background: diyColors.foreground }} />
-                      <div className="h-1.5 w-4 rounded-full opacity-30" style={{ background: diyColors.foreground }} />
-                    </div>
-                    <div className="mt-2 flex gap-2">
-                      <div className="flex-1 rounded-md p-1.5" style={{ background: diyColors.card }}>
-                        <div className="h-1 rounded-full w-3/4 opacity-50" style={{ background: diyColors.foreground }} />
-                      </div>
-                      <div className="w-6 rounded-md" style={{ background: diyColors.muted, opacity: 0.5 }} />
-                    </div>
-                  </div>
-
                   {/* Apply / Reset buttons */}
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 mt-2">
                     <button
-                      onClick={() => colorTheme.setCustomTheme(diyColors, diyMode)}
-                      className="flex-1 py-2 text-xs font-bold rounded-lg bg-gradient-to-r from-amber-glow to-coral text-white transition hover:brightness-110 cursor-pointer"
+                      onClick={() => { setPreviewThemeId("custom"); handleSetTheme(); }}
+                      className="flex-1 py-2 text-xs font-bold rounded-lg text-white transition hover:brightness-110 cursor-pointer shadow-md"
+                      style={{ backgroundColor: diyColors.primary }}
                     >
-                      Apply Custom Theme
+                      Set Custom Theme
                     </button>
                     {colorTheme.isCustom && (
                       <button
-                        onClick={() => colorTheme.clearCustomTheme()}
+                        onClick={() => {
+                          colorTheme.clearCustomTheme();
+                          setPreviewThemeId(colorTheme.activeThemeId);
+                        }}
                         className="px-3 py-2 text-xs font-semibold rounded-lg bg-secondary/50 text-foreground hover:bg-secondary transition cursor-pointer"
                       >
                         Reset

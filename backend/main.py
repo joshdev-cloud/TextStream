@@ -13,6 +13,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from supabase import create_client, Client
 from pydantic import BaseModel
 from typing import List, Optional
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from typing import List, Optional
 
 from config import Config
 from langchain_community.document_loaders import PyPDFLoader, TextLoader
@@ -777,6 +781,36 @@ async def ingest_arxiv(request: IngestArxivRequest, background_tasks: Background
     TASK_STORE[task_id] = {"status": "processing", "created_at": time.time()}
     background_tasks.add_task(process_ingest_arxiv_task, task_id, request, user_id)
     return JSONResponse(status_code=202, content={"task_id": task_id, "status": "processing"})
+
+class ContactRequest(BaseModel):
+    email: str
+    message: str
+    notify: bool
+
+@app.post("/api/contact")
+async def contact_us(request: ContactRequest):
+    gmail_user = os.getenv("GMAIL_EMAIL", "stxjoshua@gmail.com")
+    gmail_app_password = os.getenv("GMAIL_APP_PASSWORD")
+    
+    if not gmail_app_password:
+        raise HTTPException(status_code=500, detail="Server not configured for sending emails (missing GMAIL_APP_PASSWORD). Please set it in backend/.env")
+
+    msg = MIMEMultipart()
+    msg['From'] = gmail_user
+    msg['To'] = "stxjoshua@gmail.com"
+    msg['Subject'] = f"New Contact Request from {request.email}"
+    
+    body = f"User Email: {request.email}\nNotify of updates: {'Yes' if request.notify else 'No'}\n\nMessage:\n{request.message}"
+    msg.attach(MIMEText(body, 'plain'))
+    
+    try:
+        server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
+        server.login(gmail_user, gmail_app_password)
+        server.send_message(msg)
+        server.quit()
+        return {"success": True, "message": "Email sent successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to send email: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn

@@ -10,8 +10,104 @@ interface InfoModalProps {
 }
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
+import { getThemeById, buildCustomThemeVariables, CustomThemeColors, ColorTheme } from "@/lib/colorThemes";
 import { useColorTheme } from "@/hooks/useColorTheme";
-import { type CustomThemeColors, getThemeById, buildCustomThemeVariables } from "@/lib/colorThemes";
+
+function ContactForm({ onClose }: { onClose: () => void }) {
+  const [email, setEmail] = useState("");
+  const [message, setMessage] = useState("");
+  const [notify, setNotify] = useState(false);
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [errorMsg, setErrorMsg] = useState("");
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !message) return;
+
+    setStatus("loading");
+    try {
+      const res = await fetch("http://127.0.0.1:8000/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, message, notify })
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.detail || "Failed to send message");
+      }
+
+      setStatus("success");
+      setTimeout(() => onClose(), 2000);
+    } catch (err: any) {
+      console.error("Contact error:", err);
+      setStatus("error");
+      setErrorMsg(err.message || "Failed to send message");
+    }
+  };
+
+  if (status === "success") {
+    return (
+      <div className="flex flex-col items-center justify-center py-8 text-center animate-fade-in">
+        <div className="size-12 rounded-full bg-green-500/20 text-green-500 flex items-center justify-center mb-4">
+          <Check className="size-6" />
+        </div>
+        <h3 className="text-lg font-bold text-foreground">Message Sent!</h3>
+        <p className="text-sm text-muted-foreground mt-1">We'll get back to you shortly.</p>
+      </div>
+    );
+  }
+
+  return (
+    <form className="space-y-4" onSubmit={handleSubmit}>
+      <div>
+        <label className="block text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-1">Email Address</label>
+        <input 
+          type="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="you@university.edu"
+          className="w-full p-3 text-sm transition border outline-none bg-secondary/35 border-border/50 rounded-2xl placeholder:text-muted-foreground focus:ring-1 focus:ring-amber-glow/60 focus:border-amber-glow"
+        />
+      </div>
+      <div>
+        <label className="block text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-1">Your Message</label>
+        <textarea 
+          rows={4}
+          required
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          placeholder="How can we help you improve your study sessions?"
+          className="w-full p-3 text-sm transition border outline-none resize-none bg-secondary/35 border-border/50 rounded-2xl placeholder:text-muted-foreground focus:ring-1 focus:ring-amber-glow/60 focus:border-amber-glow"
+        />
+      </div>
+      <div className="flex items-center gap-2 mt-2">
+        <label className="flex items-center gap-2 cursor-pointer group text-xs">
+          <input 
+            type="checkbox" 
+            checked={notify}
+            onChange={(e) => setNotify(e.target.checked)}
+            className="rounded bg-secondary/50 border-border/50 text-amber-glow focus:ring-amber-glow/50 cursor-pointer" 
+          />
+          <span className="font-medium transition text-muted-foreground group-hover:text-foreground">Notify me of updates or responses</span>
+        </label>
+      </div>
+      
+      {status === "error" && (
+        <p className="text-xs text-coral font-medium text-center">{errorMsg}</p>
+      )}
+
+      <button
+        type="submit"
+        disabled={status === "loading"}
+        className="w-full py-3 mt-2 text-sm font-bold text-white transition rounded-2xl bg-gradient-to-r from-amber-glow to-coral glow-amber hover:brightness-110 hover:scale-[1.02] cursor-pointer disabled:opacity-50 disabled:scale-100"
+      >
+        {status === "loading" ? "Sending..." : "Send Message"}
+      </button>
+    </form>
+  );
+}
 
 export function InfoModal({ type, onClose }: InfoModalProps) {
   const { user } = useAuth();
@@ -205,39 +301,7 @@ export function InfoModal({ type, onClose }: InfoModalProps) {
       icon: <Mail className="size-6 text-primary-foreground" />,
       title: "Contact Us",
       description: "We'd love to hear from you.",
-      body: (
-        <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
-          <div>
-            <label className="block text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-1">Email Address</label>
-            <input 
-              type="email"
-              placeholder="you@university.edu"
-              className="w-full p-3 text-sm transition border outline-none bg-secondary/35 border-border/50 rounded-2xl placeholder:text-muted-foreground focus:ring-1 focus:ring-amber-glow/60 focus:border-amber-glow"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-1">Your Message</label>
-            <textarea 
-              rows={4}
-              placeholder="How can we help you improve your study sessions?"
-              className="w-full p-3 text-sm transition border outline-none resize-none bg-secondary/35 border-border/50 rounded-2xl placeholder:text-muted-foreground focus:ring-1 focus:ring-amber-glow/60 focus:border-amber-glow"
-            />
-          </div>
-          <div className="flex items-center gap-2 mt-2">
-            <label className="flex items-center gap-2 cursor-pointer group text-xs">
-              <input type="checkbox" className="rounded bg-secondary/50 border-border/50 text-amber-glow focus:ring-amber-glow/50 cursor-pointer" />
-              <span className="font-medium transition text-muted-foreground group-hover:text-foreground">Notify me of updates or responses</span>
-            </label>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-full py-3 mt-2 text-sm font-bold text-white transition rounded-2xl bg-gradient-to-r from-amber-glow to-coral glow-amber hover:brightness-110 hover:scale-[1.02] cursor-pointer"
-          >
-            Send Message
-          </button>
-        </form>
-      )
+      body: <ContactForm onClose={onClose} />
     },
     terms: {
       icon: <FileText className="size-6 text-primary-foreground" />,

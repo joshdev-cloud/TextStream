@@ -254,12 +254,15 @@ export function InfoModal({ type, onClose }: InfoModalProps) {
             </h4>
 
             {/* Live Preview Strip */}
-            <div className="rounded-xl overflow-hidden border border-border/40">
+            <div 
+              className="relative rounded-2xl overflow-hidden border border-border/20 transition-all duration-500 shadow-2xl" 
+              style={{ boxShadow: `0 10px 40px -10px ${colorTheme.activeTheme.preview.primary}50` }}
+            >
               <div
-                className="p-4 flex items-center gap-3 transition-all duration-500"
+                className="p-5 flex items-center gap-4 transition-all duration-500"
                 style={{ background: colorTheme.activeTheme.preview.bg }}
               >
-                <div className="flex-1 space-y-1.5">
+                <div className="flex-1 space-y-2">
                   <div
                     className="text-xs font-bold tracking-wide"
                     style={{ color: colorTheme.activeTheme.preview.text }}
@@ -287,13 +290,13 @@ export function InfoModal({ type, onClose }: InfoModalProps) {
                     />
                   </div>
                 </div>
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-col gap-2">
                   <div
-                    className="size-5 rounded-md transition-all duration-500"
+                    className="size-6 rounded-lg shadow-sm transition-all duration-500"
                     style={{ background: colorTheme.activeTheme.preview.primary }}
                   />
                   <div
-                    className="size-5 rounded-md transition-all duration-500"
+                    className="size-6 rounded-lg shadow-sm transition-all duration-500"
                     style={{ background: colorTheme.activeTheme.preview.accent }}
                   />
                 </div>
@@ -310,19 +313,26 @@ export function InfoModal({ type, onClose }: InfoModalProps) {
                     <button
                       key={theme.id}
                       onClick={() => colorTheme.setColorTheme(theme.id)}
-                      className={`group relative rounded-xl p-2 transition-all duration-200 cursor-pointer border ${
+                      className={`group relative rounded-2xl p-2.5 transition-all duration-300 cursor-pointer border ${
                         isActive
-                          ? "border-amber-glow/60 ring-1 ring-amber-glow/40 scale-[1.02]"
-                          : "border-border/30 hover:border-border/60 hover:scale-[1.02]"
+                          ? "ring-2 scale-[1.03] shadow-lg"
+                          : "border-border/20 hover:border-border/50 hover:scale-[1.03] hover:shadow-md hover:shadow-black/20"
                       }`}
-                      style={{ background: theme.preview.bg }}
+                      style={{ 
+                        background: theme.preview.bg,
+                        borderColor: isActive ? theme.preview.primary : undefined,
+                        boxShadow: isActive ? `0 4px 20px -5px ${theme.preview.primary}50` : undefined
+                      }}
                     >
                       {isActive && (
-                        <div className="absolute -top-1.5 -right-1.5 size-5 rounded-full bg-amber-glow grid place-items-center shadow-lg z-10">
-                          <Check className="size-3 text-white" strokeWidth={3} />
+                        <div 
+                          className="absolute -top-2 -right-2 size-6 rounded-full grid place-items-center shadow-lg z-10 transition-transform duration-300 scale-110"
+                          style={{ background: theme.preview.primary }}
+                        >
+                          <Check className="size-3.5" style={{ color: theme.preview.bg }} strokeWidth={4} />
                         </div>
                       )}
-                      <div className="flex gap-1 mb-1.5">
+                      <div className="flex gap-1.5 mb-2">
                         <div className="h-4 flex-1 rounded-sm" style={{ background: theme.preview.primary }} />
                         <div className="h-4 w-3 rounded-sm" style={{ background: theme.preview.accent }} />
                       </div>
@@ -352,19 +362,26 @@ export function InfoModal({ type, onClose }: InfoModalProps) {
                     <button
                       key={theme.id}
                       onClick={() => colorTheme.setColorTheme(theme.id)}
-                      className={`group relative rounded-xl p-2 transition-all duration-200 cursor-pointer border ${
+                      className={`group relative rounded-2xl p-2.5 transition-all duration-300 cursor-pointer border ${
                         isActive
-                          ? "border-amber-glow/60 ring-1 ring-amber-glow/40 scale-[1.02]"
-                          : "border-border/30 hover:border-border/60 hover:scale-[1.02]"
+                          ? "ring-2 scale-[1.03] shadow-lg"
+                          : "border-border/20 hover:border-border/50 hover:scale-[1.03] hover:shadow-md hover:shadow-black/10"
                       }`}
-                      style={{ background: theme.preview.bg }}
+                      style={{ 
+                        background: theme.preview.bg,
+                        borderColor: isActive ? theme.preview.primary : undefined,
+                        boxShadow: isActive ? `0 4px 20px -5px ${theme.preview.primary}50` : undefined
+                      }}
                     >
                       {isActive && (
-                        <div className="absolute -top-1.5 -right-1.5 size-5 rounded-full bg-amber-glow grid place-items-center shadow-lg z-10">
-                          <Check className="size-3 text-white" strokeWidth={3} />
+                        <div 
+                          className="absolute -top-2 -right-2 size-6 rounded-full grid place-items-center shadow-lg z-10 transition-transform duration-300 scale-110"
+                          style={{ background: theme.preview.primary }}
+                        >
+                          <Check className="size-3.5" style={{ color: theme.preview.bg }} strokeWidth={4} />
                         </div>
                       )}
-                      <div className="flex gap-1 mb-1.5">
+                      <div className="flex gap-1.5 mb-2">
                         <div className="h-4 flex-1 rounded-sm" style={{ background: theme.preview.primary }} />
                         <div className="h-4 w-3 rounded-sm" style={{ background: theme.preview.accent }} />
                       </div>

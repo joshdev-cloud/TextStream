@@ -789,11 +789,16 @@ class ContactRequest(BaseModel):
 
 @app.post("/api/contact")
 async def contact_us(request: ContactRequest):
+    from dotenv import load_dotenv
+    load_dotenv(override=True)
+    
     gmail_user = os.getenv("GMAIL_EMAIL", "stxjoshua@gmail.com")
     gmail_app_password = os.getenv("GMAIL_APP_PASSWORD")
     
     if not gmail_app_password:
         raise HTTPException(status_code=500, detail="Server not configured for sending emails (missing GMAIL_APP_PASSWORD). Please set it in backend/.env")
+
+    gmail_app_password = gmail_app_password.replace(" ", "")
 
     msg = MIMEMultipart()
     msg['From'] = gmail_user

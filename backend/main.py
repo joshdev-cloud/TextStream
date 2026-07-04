@@ -800,12 +800,25 @@ async def contact_us(request: ContactRequest):
 
     gmail_app_password = gmail_app_password.replace(" ", "")
 
+    import random
+    case_number = random.randint(10000, 99999)
+
     msg = MIMEMultipart()
     msg['From'] = gmail_user
     msg['To'] = "stxjoshua@gmail.com"
-    msg['Subject'] = f"New Contact Request from {request.email}"
+    msg['Subject'] = f"TEXTSTREAM CONTACT US CASE #{case_number}"
     
-    body = f"User Email: {request.email}\nNotify of updates: {'Yes' if request.notify else 'No'}\n\nMessage:\n{request.message}"
+    body = f"""EMAIL: {request.email}
+
+{request.message}
+
+-----------------------------------------
+This is an automated message from TextStream.
+TextStream - The Ultimate Interactive Study Companion.
+© 2026 TextStream Inc. All Rights Reserved.
+Proprietary and Confidential.
+-----------------------------------------
+"""
     msg.attach(MIMEText(body, 'plain'))
     
     try:

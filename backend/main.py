@@ -792,20 +792,20 @@ async def contact_us(request: ContactRequest):
     from dotenv import load_dotenv
     load_dotenv(override=True)
     
-    outlook_user = os.getenv("OUTLOOK_EMAIL", "Joshuamark.luna@outlook.com")
-    outlook_app_password = os.getenv("OUTLOOK_APP_PASSWORD")
+    gmail_user = os.getenv("GMAIL_EMAIL", "stxjoshua@gmail.com")
+    gmail_app_password = os.getenv("GMAIL_APP_PASSWORD")
     
-    if not outlook_app_password:
-        raise HTTPException(status_code=500, detail="Server not configured for sending emails (missing OUTLOOK_APP_PASSWORD). Please set it in backend/.env")
+    if not gmail_app_password:
+        raise HTTPException(status_code=500, detail="Server not configured for sending emails (missing GMAIL_APP_PASSWORD). Please set it in backend/.env")
 
-    outlook_app_password = outlook_app_password.replace(" ", "")
+    gmail_app_password = gmail_app_password.replace(" ", "")
 
     import random
     case_number = random.randint(10000, 99999)
 
     msg = MIMEMultipart()
-    msg['From'] = outlook_user
-    msg['To'] = "Joshuamark.luna@outlook.com"
+    msg['From'] = gmail_user
+    msg['To'] = "stxjoshua@gmail.com"
     msg['Subject'] = f"TEXTSTREAM CONTACT US CASE #{case_number}"
     
     body = f"""EMAIL: {request.email}
@@ -822,9 +822,8 @@ Proprietary and Confidential.
     msg.attach(MIMEText(body, 'plain'))
     
     try:
-        server = smtplib.SMTP('smtp-mail.outlook.com', 587)
-        server.starttls()
-        server.login(outlook_user, outlook_app_password)
+        server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
+        server.login(gmail_user, gmail_app_password)
         server.send_message(msg)
         server.quit()
         return {"success": True, "message": "Email sent successfully"}

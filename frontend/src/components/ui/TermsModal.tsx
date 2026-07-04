@@ -8,6 +8,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { X, ChevronUp, FileText, Shield, Scale } from "lucide-react";
 
 interface TermsModalProps {
@@ -39,6 +40,11 @@ export function TermsModal({ open, onClose }: TermsModalProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [activeSection, setActiveSection] = useState("");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   /* ── Scroll tracking ───────────────────────────────────────── */
   const handleScroll = useCallback(() => {
@@ -88,9 +94,9 @@ export function TermsModal({ open, onClose }: TermsModalProps) {
     return () => document.removeEventListener("keydown", handleKey);
   }, [open, onClose]);
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
@@ -701,6 +707,7 @@ export function TermsModal({ open, onClose }: TermsModalProps) {
           background: var(--muted-foreground);
         }
       `}</style>
-    </div>
+    </div>,
+    document.body
   );
 }
